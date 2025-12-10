@@ -2,140 +2,177 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tour Monitor Debugger</title>
+    <title>Tour Monitor Control Panel</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@zendeskgarden/css-bedrock@8.0.0">
     <style>
-        body { padding: 10px; font-family: system-ui, -apple-system, sans-serif; color: #2f3941; }
-        .btn { background: #1f73b7; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 10px; }
-        .btn:hover { background: #144a75; }
-        .error { color: #d93f4c; font-weight: bold; padding: 10px; background: #fff4f5; border: 1px solid #d93f4c; margin-top: 10px; }
-        .success { color: #03a84e; font-weight: bold; padding: 10px; background: #edfbf1; border: 1px solid #03a84e; margin-top: 10px; }
-        .debug-info { background: #eee; padding: 10px; font-family: monospace; font-size: 11px; margin-top: 10px; white-space: pre-wrap; word-break: break-all; border: 1px solid #ccc; }
-        .label { font-weight: bold; display: block; margin-top: 5px; }
+        body { padding: 15px; font-family: system-ui, -apple-system, sans-serif; color: #2f3941; }
+        h3 { margin-top: 0; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
         
-        /* Standard App Styles */
-        .alert-box { background: #fff4f5; border-left: 4px solid #d93f4c; padding: 15px; margin-bottom: 15px; }
-        .hidden { display: none; }
+        /* Control Panel Buttons */
+        .btn-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .btn { border: none; padding: 10px; border-radius: 4px; cursor: pointer; text-align: left; font-size: 13px; font-weight: 500; display: flex; align-items: center; }
+        .btn:hover { opacity: 0.9; }
+        .btn-icon { margin-right: 8px; font-size: 16px; }
+        
+        .btn-blue { background: #eef4f9; color: #1f73b7; border: 1px solid #1f73b7; }
+        .btn-red { background: #fff4f5; color: #d93f4c; border: 1px solid #d93f4c; }
+        .btn-green { background: #edfbf1; color: #03a84e; border: 1px solid #03a84e; }
+        .btn-dark { background: #2f3941; color: white; }
+
+        /* Output Logs */
+        .log-box { background: #f8f9f9; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; border: 1px solid #e1e3e5; display: none; margin-top: 10px; max-height: 200px; overflow-y: auto; }
+        .log-visible { display: block; }
+        
+        /* Visual Test Areas */
+        .modal-sim { border: 1px solid #ccc; padding: 15px; margin-top: 10px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; color: white; font-size: 10px; font-weight: bold; background: #d93f4c; }
     </style>
 </head>
 <body>
     <div id="app">
-        <h3>🔍 Monitor Status</h3>
+        <h3>🛠️ TESTING CONTROL PANEL</h3>
         
-        <div id="status-area">Initializing...</div>
+        <div class="btn-group">
+            <button class="btn btn-dark" onclick="inspectFields()">
+                <span class="btn-icon">🔍</span> 1. Inspect All Ticket Fields
+            </button>
+            <div id="log-fields" class="log-box"></div>
 
-        <div id="instruction-area" class="alert-box hidden">
-            <strong>⚠️ INSTRUCTION FOUND:</strong><br>
-            <span id="instruction-text"></span>
+            <button class="btn btn-blue" onclick="testSheet()">
+                <span class="btn-icon">☁️</span> 2. Test Google Sheet Connection
+            </button>
+            <div id="log-sheet" class="log-box"></div>
+
+            <button class="btn btn-green" onclick="testNote()">
+                <span class="btn-icon">📝</span> 3. Test "Add Internal Note"
+            </button>
+
+            <button class="btn btn-red" onclick="testPopup()">
+                <span class="btn-icon">🚨</span> 4. Simulate "Deadline Passed"
+            </button>
         </div>
 
-        <button class="btn" onclick="manualRun()">🔄 Run Check & Debug</button>
+        <div id="sim-popup" class="modal-sim">
+            <span class="badge">DEADLINE PASSED</span>
+            <h4 style="margin: 10px 0 5px 0; color: #d93f4c;">Tour Deadline Exceeded</h4>
+            <p style="font-size: 12px; margin-bottom: 10px;">The tour in <strong>Rome</strong> at <strong>10:30 AM</strong> has passed.</p>
+            <button class="btn btn-blue" style="width: 100%; text-align: center; justify-content: center;" onclick="closeSim()">I Acknowledge</button>
+        </div>
 
-        <div id="debug-log" class="debug-info hidden"></div>
     </div>
 
     <script type="text/javascript" src="https://static.zdassets.com/zendesk_app_framework_sdk/2.0/zaf_sdk.min.js"></script>
     <script>
         var client = ZAFClient.init();
-        client.invoke('resize', { width: '100%', height: '500px' }); // Made taller for debug info
+        client.invoke('resize', { width: '100%', height: '500px' });
 
-        // CONFIG: FIELD NAMES
-        // If your Zendesk fields are named differently, UPDATE THESE!
-        const CONFIG = {
-            tourId: "Tour Id",
-            vendorId: "Vendor Id",
-            city: "City",
-            date: "Tour Date",
-            time: "Start time",
-            completion: "Completion Type"
-        };
+        // --- 1. INSPECT FIELDS (Fixes "Field Not Found") ---
+        async function inspectFields() {
+            const logEl = document.getElementById('log-fields');
+            logEl.innerText = "Scanning Ticket Fields...";
+            logEl.classList.add('log-visible');
 
-        client.on('app.registered', function() {
-            manualRun();
-        });
-
-        async function manualRun() {
-            log("Running check...", true);
-            
             try {
-                // 1. GET SETTINGS
-                const metadata = await client.metadata();
-                const scriptUrl = metadata.settings.scriptUrl;
-                
-                if (!scriptUrl) {
-                    log("❌ ERROR: 'scriptUrl' is missing in App Settings.", false);
-                    return;
-                }
-                log(`✅ Script URL found: ...${scriptUrl.substr(-10)}`, false);
-
-                // 2. GET TICKET DATA
+                // Get all available field definitions
                 const context = await client.get('ticketFields');
-                const ticket = await client.get('ticket');
-                const fields = context.ticketFields;
+                const ticketData = await client.get('ticket');
+                
+                let report = "--- FOUND FIELDS ---\n";
+                
+                // We specifically look for fields containing these keywords
+                const keywords = ["tour", "vendor", "city", "date", "start", "time"];
 
-                // Helper to find value
-                const getVal = (targetLabel) => {
-                    const fieldDef = fields.find(f => f.label === targetLabel);
-                    if (!fieldDef) return "FIELD_NOT_FOUND"; // This helps us debug names!
-                    const val = ticket.ticket[`customField:custom_field_${fieldDef.id}`];
-                    return val === undefined || val === null ? "" : val;
-                };
-
-                // Read Values
-                const data = {
-                    tourId: getVal(CONFIG.tourId),
-                    vendorId: getVal(CONFIG.vendorId),
-                    city: getVal(CONFIG.city),
-                    date: getVal(CONFIG.date),
-                    time: getVal(CONFIG.time)
-                };
-
-                // Print what we found
-                log("--- TICKET DATA ---", false);
-                log(`Tour ID:  ${data.tourId}  (${data.tourId === "FIELD_NOT_FOUND" ? "❌ Name Mismatch" : "✅"})`, false);
-                log(`Vendor ID: ${data.vendorId} (${data.vendorId === "FIELD_NOT_FOUND" ? "❌ Name Mismatch" : "✅"})`, false);
-                log(`City:     ${data.city}      (${data.city === "FIELD_NOT_FOUND" ? "❌ Name Mismatch" : "✅"})`, false);
-                log(`Date:     ${data.date}`, false);
-                log(`Time:     ${data.time}`, false);
-
-                // 3. CHECK INSTRUCTIONS
-                if (data.tourId && data.vendorId && data.tourId !== "FIELD_NOT_FOUND") {
-                    log("\n--- CHECKING GOOGLE SHEET ---", false);
-                    try {
-                        const url = `${scriptUrl}?tourId=${encodeURIComponent(data.tourId)}&vendorId=${encodeURIComponent(data.vendorId)}`;
-                        const response = await client.request({ url: url, type: 'GET', cors: true });
-                        const json = typeof response === 'string' ? JSON.parse(response) : response;
-                        
-                        log(`Server Response: ${JSON.stringify(json)}`, false);
-
-                        if (json.found) {
-                            document.getElementById('instruction-area').classList.remove('hidden');
-                            document.getElementById('instruction-text').innerText = json.instructions;
-                            document.getElementById('status-area').innerHTML = "<div class='success'>✅ Instructions Found!</div>";
-                        } else {
-                            document.getElementById('instruction-area').classList.add('hidden');
-                            document.getElementById('status-area').innerHTML = "<div>No instructions found for this ID.</div>";
-                        }
-                    } catch (netErr) {
-                        log(`❌ Network Error: ${netErr.message}`, false);
-                        document.getElementById('status-area').innerHTML = "<div class='error'>Connection Failed</div>";
+                context.ticketFields.forEach(f => {
+                    // Check if field label contains any of our keywords
+                    if (keywords.some(k => f.label.toLowerCase().includes(k))) {
+                        // Get the current value from the ticket
+                        const val = ticketData.ticket[`customField:custom_field_${f.id}`];
+                        report += `LABEL: "${f.label}"\n`;
+                        report += `   ID: ${f.id}\n`;
+                        report += `   VALUE: "${val}"\n`;
+                        report += `------------------\n`;
                     }
-                } else {
-                    log("Skipping Sheet Check: Missing Tour ID", false);
+                });
+
+                if (report === "--- FOUND FIELDS ---\n") {
+                    report += "No relevant fields found! Check your field permissions.";
                 }
 
-            } catch (err) {
-                log(`❌ CRITICAL ERROR: ${err.message}`, false);
-                console.error(err);
+                logEl.innerText = report;
+            } catch (e) {
+                logEl.innerText = "Error: " + e.message;
             }
         }
 
-        function log(msg, clear) {
-            const el = document.getElementById('debug-log');
-            el.classList.remove('hidden');
-            if (clear) el.innerText = msg + "\n";
-            else el.innerText += msg + "\n";
+        // --- 2. TEST GOOGLE SHEET (Fixes "Not Running") ---
+        async function testSheet() {
+            const logEl = document.getElementById('log-sheet');
+            logEl.innerText = "Connecting to Script...";
+            logEl.classList.add('log-visible');
+
+            try {
+                const metadata = await client.metadata();
+                const scriptUrl = metadata.settings.scriptUrl;
+
+                if (!scriptUrl) {
+                    throw new Error("No Script URL in Settings!");
+                }
+
+                // Get IDs from ticket first
+                const context = await client.get('ticketFields');
+                const ticket = await client.get('ticket');
+                
+                // Helper to safely find value by loose matching
+                const findVal = (partName) => {
+                    const f = context.ticketFields.find(field => field.label.toLowerCase().includes(partName));
+                    return f ? ticket.ticket[`customField:custom_field_${f.id}`] : null;
+                };
+
+                // Try to find "Tour Id" (case insensitive)
+                const tid = findVal("tour id"); 
+                const vid = findVal("vendor id");
+
+                if (!tid || !vid) {
+                    logEl.innerText = `❌ Cannot run test: Ticket must have Tour ID and Vendor ID filled.\nFound TourID: ${tid}\nFound VendorID: ${vid}`;
+                    return;
+                }
+
+                logEl.innerText = `Testing with TourID: ${tid}, VendorID: ${vid}...\n`;
+
+                const response = await client.request({
+                    url: `${scriptUrl}?tourId=${encodeURIComponent(tid)}&vendorId=${encodeURIComponent(vid)}`,
+                    type: 'GET',
+                    cors: true
+                });
+
+                const data = JSON.parse(response);
+                logEl.innerText += `\n✅ RESULT:\nFound: ${data.found}\nInstructions: "${data.instructions || 'None'}"`;
+
+            } catch (e) {
+                logEl.innerText += `\n❌ ERROR: ${e.message}`;
+            }
+        }
+
+        // --- 3. TEST NOTE (Verifies Permissions) ---
+        function testNote() {
+            client.invoke('ticket.comment.appendText', "✅ [TEST] The Monitor App is working correctly.")
+                .then(() => {
+                    client.invoke('notify', 'Test Note Added!');
+                })
+                .catch(err => {
+                    client.invoke('notify', 'Error adding note: ' + err.message, 'error');
+                });
+        }
+
+        // --- 4. TEST POPUP (Verifies UI) ---
+        function testPopup() {
+            const simEl = document.getElementById('sim-popup');
+            simEl.style.display = "block";
+        }
+
+        function closeSim() {
+            document.getElementById('sim-popup').style.display = "none";
+            testNote(); // Verify note logic on acknowledge
         }
     </script>
 </body>
