@@ -3,237 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tour Monitor</title>
+    <title>Tour Monitor Debugger</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@zendeskgarden/css-bedrock@8.0.0">
     <style>
         body { padding: 10px; font-family: system-ui, -apple-system, sans-serif; color: #2f3941; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #1f73b7; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* Alert Box for Instructions */
-        .alert-box { background: #fff4f5; border-left: 4px solid #d93f4c; padding: 15px; margin-bottom: 15px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .alert-title { font-weight: bold; color: #681219; margin-bottom: 5px; display: block; font-size: 14px; }
-        
-        /* Deadline Box */
-        .deadline-box { background: #f8f9f9; padding: 15px; border-radius: 4px; text-align: center; margin-top: 15px; }
-        .deadline-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; color: white; font-weight: bold; font-size: 12px; margin-bottom: 10px; }
-        .badge-passed { background: #d93f4c; } 
-        .badge-urgent { background: #f79a3e; } 
-        .badge-normal { background: #03a84e; } 
-        
-        .time-display { font-size: 24px; font-weight: 600; margin: 10px 0; }
-        .btn { background: #1f73b7; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 14px; margin-top: 10px; }
+        .btn { background: #1f73b7; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 10px; }
         .btn:hover { background: #144a75; }
-        .hidden { display: none; }
+        .error { color: #d93f4c; font-weight: bold; padding: 10px; background: #fff4f5; border: 1px solid #d93f4c; margin-top: 10px; }
+        .success { color: #03a84e; font-weight: bold; padding: 10px; background: #edfbf1; border: 1px solid #03a84e; margin-top: 10px; }
+        .debug-info { background: #eee; padding: 10px; font-family: monospace; font-size: 11px; margin-top: 10px; white-space: pre-wrap; word-break: break-all; border: 1px solid #ccc; }
+        .label { font-weight: bold; display: block; margin-top: 5px; }
         
-        /* Test Controls */
-        .test-controls { margin-top: 20px; text-align: right; border-top: 1px solid #eee; padding-top: 10px; }
-        .btn-test { background: transparent; color: #1f73b7; border: 1px solid #1f73b7; font-size: 12px; padding: 5px 10px; cursor: pointer; border-radius: 3px; }
-        .btn-test:hover { background: #eef4f9; }
+        /* Standard App Styles */
+        .alert-box { background: #fff4f5; border-left: 4px solid #d93f4c; padding: 15px; margin-bottom: 15px; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
     <div id="app">
-        <div id="loader" class="loader"></div>
-        <div id="content" class="hidden">
-            
-            <div id="instruction-area" class="hidden">
-                <div class="alert-box">
-                    <span class="alert-title">⚠️ SPECIAL INSTRUCTIONS FOUND</span>
-                    <div id="instruction-text"></div>
-                    <button class="btn" onclick="acknowledgeInstructions()">I Acknowledge</button>
-                </div>
-            </div>
-            <div id="no-instructions-msg" class="hidden" style="color:#68737d; font-size:12px; text-align:center; margin-bottom:10px;">
-                ✓ No special instructions found for this tour.
-            </div>
+        <h3>🔍 Monitor Status</h3>
+        
+        <div id="status-area">Initializing...</div>
 
-            <div id="deadline-area">
-                <div class="deadline-box">
-                    <span id="status-badge" class="deadline-badge">Checking...</span>
-                    <div id="timer-display" class="time-display">--:--</div>
-                    <div id="deadline-details" style="font-size: 12px; color: #68737d;"></div>
-                </div>
-            </div>
-
-            <div class="test-controls">
-                <button class="btn btn-test" onclick="manualRun()">🔄 Run Check Now</button>
-            </div>
+        <div id="instruction-area" class="alert-box hidden">
+            <strong>⚠️ INSTRUCTION FOUND:</strong><br>
+            <span id="instruction-text"></span>
         </div>
-        <div id="error-msg" style="color: red; text-align: center; margin-top: 20px;"></div>
+
+        <button class="btn" onclick="manualRun()">🔄 Run Check & Debug</button>
+
+        <div id="debug-log" class="debug-info hidden"></div>
     </div>
 
     <script type="text/javascript" src="https://static.zdassets.com/zendesk_app_framework_sdk/2.0/zaf_sdk.min.js"></script>
     <script>
         var client = ZAFClient.init();
-        client.invoke('resize', { width: '100%', height: '400px' });
+        client.invoke('resize', { width: '100%', height: '500px' }); // Made taller for debug info
 
-        const TIMEZONE_MAP = {
-            "new york": "America/New_York", "london": "Europe/London", "dubai": "Asia/Dubai", 
-            "paris": "Europe/Paris", "rome": "Europe/Rome", "tokyo": "Asia/Tokyo",
-            "singapore": "Asia/Singapore", "sydney": "Australia/Sydney", "los angeles": "America/Los_Angeles",
-            "chicago": "America/Chicago", "berlin": "Europe/Berlin", "madrid": "Europe/Madrid"
+        // CONFIG: FIELD NAMES
+        // If your Zendesk fields are named differently, UPDATE THESE!
+        const CONFIG = {
+            tourId: "Tour Id",
+            vendorId: "Vendor Id",
+            city: "City",
+            date: "Tour Date",
+            time: "Start time",
+            completion: "Completion Type"
         };
-        
-        let deadlineInterval = null;
 
         client.on('app.registered', function() {
-            fetchData();
+            manualRun();
         });
 
-        // --- MANUAL TEST RUNNER ---
-        function manualRun() {
-            // 1. Show Loading State
-            document.getElementById('content').classList.add('hidden');
-            document.getElementById('loader').classList.remove('hidden');
-            document.getElementById('no-instructions-msg').classList.add('hidden');
-            document.getElementById('instruction-area').classList.add('hidden');
+        async function manualRun() {
+            log("Running check...", true);
             
-            // 2. Clear Console for clarity
-            console.clear();
-            console.log("--- STARTING MANUAL TEST RUN ---");
-
-            // 3. Trigger Data Fetch
-            fetchData();
-        }
-
-        async function fetchData() {
             try {
-                if (deadlineInterval) clearInterval(deadlineInterval);
-
-                // Get Ticket Data
-                const context = await client.get('ticketFields');
-                const ticket = await client.get('ticket'); // Gets current values from editor (even unsaved ones)
+                // 1. GET SETTINGS
+                const metadata = await client.metadata();
+                const scriptUrl = metadata.settings.scriptUrl;
                 
+                if (!scriptUrl) {
+                    log("❌ ERROR: 'scriptUrl' is missing in App Settings.", false);
+                    return;
+                }
+                log(`✅ Script URL found: ...${scriptUrl.substr(-10)}`, false);
+
+                // 2. GET TICKET DATA
+                const context = await client.get('ticketFields');
+                const ticket = await client.get('ticket');
                 const fields = context.ticketFields;
-                const getVal = (label) => {
-                    const field = fields.find(f => f.label === label);
-                    return field ? ticket.ticket[`customField:custom_field_${field.id}`] : null;
+
+                // Helper to find value
+                const getVal = (targetLabel) => {
+                    const fieldDef = fields.find(f => f.label === targetLabel);
+                    if (!fieldDef) return "FIELD_NOT_FOUND"; // This helps us debug names!
+                    const val = ticket.ticket[`customField:custom_field_${fieldDef.id}`];
+                    return val === undefined || val === null ? "" : val;
                 };
 
-                const tourId = getVal("Tour Id");
-                const vendorId = getVal("Vendor Id");
-                const city = getVal("City");
-                const date = getVal("Tour Date");
-                const time = getVal("Start time");
-                const completion = getVal("Completion Type");
+                // Read Values
+                const data = {
+                    tourId: getVal(CONFIG.tourId),
+                    vendorId: getVal(CONFIG.vendorId),
+                    city: getVal(CONFIG.city),
+                    date: getVal(CONFIG.date),
+                    time: getVal(CONFIG.time)
+                };
 
-                console.log("Ticket Data Loaded:", { tourId, vendorId, city, date, time });
+                // Print what we found
+                log("--- TICKET DATA ---", false);
+                log(`Tour ID:  ${data.tourId}  (${data.tourId === "FIELD_NOT_FOUND" ? "❌ Name Mismatch" : "✅"})`, false);
+                log(`Vendor ID: ${data.vendorId} (${data.vendorId === "FIELD_NOT_FOUND" ? "❌ Name Mismatch" : "✅"})`, false);
+                log(`City:     ${data.city}      (${data.city === "FIELD_NOT_FOUND" ? "❌ Name Mismatch" : "✅"})`, false);
+                log(`Date:     ${data.date}`, false);
+                log(`Time:     ${data.time}`, false);
 
-                // --- CHECK 1: INSTRUCTIONS ---
-                if(tourId && vendorId) {
-                    await checkInstructions(tourId, vendorId);
+                // 3. CHECK INSTRUCTIONS
+                if (data.tourId && data.vendorId && data.tourId !== "FIELD_NOT_FOUND") {
+                    log("\n--- CHECKING GOOGLE SHEET ---", false);
+                    try {
+                        const url = `${scriptUrl}?tourId=${encodeURIComponent(data.tourId)}&vendorId=${encodeURIComponent(data.vendorId)}`;
+                        const response = await client.request({ url: url, type: 'GET', cors: true });
+                        const json = typeof response === 'string' ? JSON.parse(response) : response;
+                        
+                        log(`Server Response: ${JSON.stringify(json)}`, false);
+
+                        if (json.found) {
+                            document.getElementById('instruction-area').classList.remove('hidden');
+                            document.getElementById('instruction-text').innerText = json.instructions;
+                            document.getElementById('status-area').innerHTML = "<div class='success'>✅ Instructions Found!</div>";
+                        } else {
+                            document.getElementById('instruction-area').classList.add('hidden');
+                            document.getElementById('status-area').innerHTML = "<div>No instructions found for this ID.</div>";
+                        }
+                    } catch (netErr) {
+                        log(`❌ Network Error: ${netErr.message}`, false);
+                        document.getElementById('status-area').innerHTML = "<div class='error'>Connection Failed</div>";
+                    }
                 } else {
-                    console.log("Skipping Instructions: Missing TourID or VendorID");
+                    log("Skipping Sheet Check: Missing Tour ID", false);
                 }
-
-                // --- CHECK 2: DEADLINE ---
-                if(city && date && time && !completion) {
-                    startDeadlineTimer(city, date, time);
-                } else if (completion) {
-                     document.getElementById('deadline-area').innerHTML = "<div class='deadline-box'><p style='color:green; font-weight:bold;'>✅ Booking Completed</p></div>";
-                } else {
-                    document.getElementById('deadline-area').innerHTML = "<div class='deadline-box'><p style='color:#999'>Waiting for tour details (City, Date, Time)...</p></div>";
-                }
-
-                // Show UI
-                setTimeout(() => {
-                    document.getElementById('loader').classList.add('hidden');
-                    document.getElementById('content').classList.remove('hidden');
-                }, 500);
 
             } catch (err) {
-                showError(err.message);
+                log(`❌ CRITICAL ERROR: ${err.message}`, false);
+                console.error(err);
             }
         }
 
-        async function checkInstructions(tourId, vendorId) {
-            const settings = await client.metadata();
-            const scriptUrl = settings.settings.scriptUrl;
-
-            if (!scriptUrl) {
-                console.error("No Script URL found in settings");
-                return;
-            }
-
-            try {
-                console.log("Fetching Instructions from Google Script...");
-                const response = await client.request({
-                    url: `${scriptUrl}?tourId=${encodeURIComponent(tourId)}&vendorId=${encodeURIComponent(vendorId)}`,
-                    type: 'GET',
-                    cors: true 
-                });
-
-                const data = typeof response === 'string' ? JSON.parse(response) : response;
-                console.log("Script Response:", data);
-                
-                if (data.found && data.instructions) {
-                    document.getElementById('instruction-area').classList.remove('hidden');
-                    document.getElementById('instruction-text').innerText = data.instructions;
-                } else {
-                    // Show "No instructions" message specifically when running a test
-                    document.getElementById('no-instructions-msg').classList.remove('hidden');
-                }
-            } catch (e) {
-                console.error("Apps Script Error", e);
-                document.getElementById('instruction-area').classList.remove('hidden');
-                document.getElementById('instruction-text').innerText = "Error checking instructions: " + e.message;
-            }
-        }
-
-        function startDeadlineTimer(city, dateStr, timeStr) {
-            console.log("Starting Deadline Timer for:", city, dateStr, timeStr);
-            const update = () => {
-                try {
-                    const cityKey = city.toLowerCase().trim();
-                    const tz = TIMEZONE_MAP[cityKey] || "UTC"; 
-                    
-                    const tourDateObj = new Date(`${dateStr}T${timeStr}:00`);
-                    if (isNaN(tourDateObj.getTime())) {
-                        document.getElementById('deadline-details').innerText = "Invalid Date Format";
-                        return;
-                    }
-
-                    const diffMs = tourDateObj - new Date(); 
-                    const diffMins = Math.floor(diffMs / 60000);
-                    
-                    const days = Math.floor(diffMins / 1440);
-                    const hours = Math.floor((diffMins % 1440) / 60);
-                    const mins = diffMins % 60;
-
-                    const displayEl = document.getElementById('timer-display');
-                    const badgeEl = document.getElementById('status-badge');
-                    const detailsEl = document.getElementById('deadline-details');
-
-                    if (diffMins < 0) {
-                        badgeEl.className = "deadline-badge badge-passed";
-                        badgeEl.innerText = "DEADLINE PASSED";
-                        displayEl.innerText = "Late by " + Math.abs(diffMins) + "m";
-                    } else if (diffMins < 120) {
-                        badgeEl.className = "deadline-badge badge-urgent";
-                        badgeEl.innerText = "URGENT";
-                        displayEl.innerText = `${hours}h ${mins}m left`;
-                    } else {
-                        badgeEl.className = "deadline-badge badge-normal";
-                        badgeEl.innerText = "ON TIME";
-                        displayEl.innerText = `${days}d ${hours}h ${mins}m`;
-                    }
-                    detailsEl.innerText = `City: ${city} | Tour: ${timeStr}`;
-
-                } catch (e) { console.error(e); }
-            };
-            update();
-            deadlineInterval = setInterval(update, 30000);
-        }
-
-        function acknowledgeInstructions() {
-            document.getElementById('instruction-area').classList.add('hidden');
-            client.invoke('ticket.comment.appendText', "Acknowledged tour instructions.");
-        }
-
-        function showError(msg) {
-            document.getElementById('loader').classList.add('hidden');
-            document.getElementById('error-msg').innerText = "Error: " + msg;
+        function log(msg, clear) {
+            const el = document.getElementById('debug-log');
+            el.classList.remove('hidden');
+            if (clear) el.innerText = msg + "\n";
+            else el.innerText += msg + "\n";
         }
     </script>
 </body>
