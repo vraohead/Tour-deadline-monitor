@@ -19,7 +19,7 @@
       }
     }
   },
-  "version": "4.0",
+  "version": "6.0",
   "frameworkVersion": "2.0",
   "domainWhitelist": ["script.google.com"],
   "parameters": [
