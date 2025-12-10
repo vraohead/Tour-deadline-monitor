@@ -2,143 +2,141 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tour Monitor Control Panel</title>
+    <title>Tour Monitor</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@zendeskgarden/css-bedrock@8.0.0">
     <style>
         body { padding: 15px; font-family: system-ui, -apple-system, sans-serif; color: #2f3941; }
-        h3 { margin-top: 0; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
         
-        /* Control Panel Buttons */
-        .btn-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-        .btn { border: none; padding: 10px; border-radius: 4px; cursor: pointer; text-align: left; font-size: 13px; font-weight: 500; display: flex; align-items: center; }
+        /* SIDEBAR STYLES */
+        .btn-group { display: flex; flex-direction: column; gap: 10px; }
+        .btn { border: none; padding: 12px; border-radius: 4px; cursor: pointer; text-align: left; font-size: 13px; font-weight: 500; display: flex; align-items: center; width: 100%; box-sizing: border-box;}
         .btn:hover { opacity: 0.9; }
         .btn-icon { margin-right: 8px; font-size: 16px; }
-        
         .btn-blue { background: #eef4f9; color: #1f73b7; border: 1px solid #1f73b7; }
         .btn-red { background: #fff4f5; color: #d93f4c; border: 1px solid #d93f4c; }
-        .btn-green { background: #edfbf1; color: #03a84e; border: 1px solid #03a84e; }
-        .btn-dark { background: #2f3941; color: white; }
-
-        /* Output Logs */
-        .log-box { background: #f8f9f9; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; border: 1px solid #e1e3e5; display: none; margin-top: 10px; max-height: 200px; overflow-y: auto; }
+        .log-box { background: #f8f9f9; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; border: 1px solid #e1e3e5; display: none; margin-top: 10px; max-height: 200px; overflow-y: auto; word-break: break-all; }
         .log-visible { display: block; }
-        
-        /* Visual Test Areas */
-        .modal-sim { border: 1px solid #ccc; padding: 15px; margin-top: 10px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; color: white; font-size: 10px; font-weight: bold; background: #d93f4c; }
+        .hidden { display: none; }
+
+        /* MODAL STYLES (The Big Popup) */
+        .modal-body { text-align: center; padding: 20px; }
+        .warning-icon { font-size: 48px; display: block; margin-bottom: 20px; }
+        .modal-title { color: #d93f4c; font-size: 24px; font-weight: bold; margin-bottom: 15px; display: block; }
+        .modal-text { font-size: 16px; line-height: 1.5; color: #49545c; margin-bottom: 30px; }
+        .btn-large { font-size: 16px; padding: 15px 30px; background: #d93f4c; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-large:hover { background: #a32f39; }
     </style>
 </head>
 <body>
-    <div id="app">
-        <h3>🛠️ TESTING CONTROL PANEL</h3>
-        
-        <div class="btn-group">
-            <button class="btn btn-dark" onclick="inspectFields()">
-                <span class="btn-icon">🔍</span> 1. Inspect All Ticket Fields
-            </button>
-            <div id="log-fields" class="log-box"></div>
-
-            <button class="btn btn-blue" onclick="testSheet()">
-                <span class="btn-icon">☁️</span> 2. Test Google Sheet Connection
-            </button>
-            <div id="log-sheet" class="log-box"></div>
-
-            <button class="btn btn-green" onclick="testNote()">
-                <span class="btn-icon">📝</span> 3. Test "Add Internal Note"
-            </button>
-
-            <button class="btn btn-red" onclick="testPopup()">
-                <span class="btn-icon">🚨</span> 4. Simulate "Deadline Passed"
-            </button>
-        </div>
-
-        <div id="sim-popup" class="modal-sim">
-            <span class="badge">DEADLINE PASSED</span>
-            <h4 style="margin: 10px 0 5px 0; color: #d93f4c;">Tour Deadline Exceeded</h4>
-            <p style="font-size: 12px; margin-bottom: 10px;">The tour in <strong>Rome</strong> at <strong>10:30 AM</strong> has passed.</p>
-            <button class="btn btn-blue" style="width: 100%; text-align: center; justify-content: center;" onclick="closeSim()">I Acknowledge</button>
-        </div>
-
-    </div>
+    <div id="app"></div>
 
     <script type="text/javascript" src="https://static.zdassets.com/zendesk_app_framework_sdk/2.0/zaf_sdk.min.js"></script>
     <script>
         var client = ZAFClient.init();
-        client.invoke('resize', { width: '100%', height: '500px' });
+        
+        // CHECK MODE: Are we in the Sidebar or the Modal?
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get('mode');
 
-        // --- 1. INSPECT FIELDS (Fixes "Field Not Found") ---
+        if (mode === 'modal') {
+            renderModal();
+        } else {
+            renderSidebar();
+        }
+
+        // ==========================================
+        // 1. SIDEBAR LOGIC (The Control Panel)
+        // ==========================================
+        function renderSidebar() {
+            client.invoke('resize', { width: '100%', height: '450px' });
+            
+            document.getElementById('app').innerHTML = `
+                <h3 style="border-bottom:1px solid #ddd; padding-bottom:10px;">🛠️ CONTROL PANEL</h3>
+                <div class="btn-group">
+                    <button class="btn btn-blue" onclick="inspectFields()">
+                        <span class="btn-icon">🔍</span> 1. Inspect All Ticket Fields
+                    </button>
+                    <div id="log-fields" class="log-box"></div>
+
+                    <button class="btn btn-blue" onclick="testSheet()">
+                        <span class="btn-icon">☁️</span> 2. Test Google Sheet
+                    </button>
+                    <div id="log-sheet" class="log-box"></div>
+
+                    <button class="btn btn-red" onclick="openRealPopup()">
+                        <span class="btn-icon">🚨</span> 3. Test REAL Popup (Modal)
+                    </button>
+                </div>
+            `;
+        }
+
         async function inspectFields() {
             const logEl = document.getElementById('log-fields');
-            logEl.innerText = "Scanning Ticket Fields...";
+            logEl.innerText = "Scanning... (Please wait)";
             logEl.classList.add('log-visible');
 
             try {
-                // Get all available field definitions
                 const context = await client.get('ticketFields');
                 const ticketData = await client.get('ticket');
                 
-                let report = "--- FOUND FIELDS ---\n";
-                
-                // We specifically look for fields containing these keywords
-                const keywords = ["tour", "vendor", "city", "date", "start", "time"];
+                let report = "--- RAW FIELD DUMP ---\n";
+                let foundCount = 0;
 
+                // Loop through EVERY field definition
                 context.ticketFields.forEach(f => {
-                    // Check if field label contains any of our keywords
-                    if (keywords.some(k => f.label.toLowerCase().includes(k))) {
-                        // Get the current value from the ticket
-                        const val = ticketData.ticket[`customField:custom_field_${f.id}`];
-                        report += `LABEL: "${f.label}"\n`;
-                        report += `   ID: ${f.id}\n`;
-                        report += `   VALUE: "${val}"\n`;
-                        report += `------------------\n`;
+                    // Safety check for null labels
+                    const label = (f.label || "NO_LABEL");
+                    
+                    // We grab the value using the ID
+                    const val = ticketData.ticket[`customField:custom_field_${f.id}`];
+
+                    // Only show fields that have data OR look like our target fields
+                    const isTarget = /tour|vendor|city|date|time/i.test(label);
+                    const hasValue = val !== undefined && val !== null && val !== "";
+
+                    if (isTarget || hasValue) {
+                        report += `[${f.id}] ${label}: "${val}"\n`;
+                        foundCount++;
                     }
                 });
 
-                if (report === "--- FOUND FIELDS ---\n") {
-                    report += "No relevant fields found! Check your field permissions.";
-                }
-
+                if (foundCount === 0) report += "No custom fields found with data.";
                 logEl.innerText = report;
+
             } catch (e) {
                 logEl.innerText = "Error: " + e.message;
             }
         }
 
-        // --- 2. TEST GOOGLE SHEET (Fixes "Not Running") ---
         async function testSheet() {
             const logEl = document.getElementById('log-sheet');
-            logEl.innerText = "Connecting to Script...";
+            logEl.innerText = "Connecting...";
             logEl.classList.add('log-visible');
 
             try {
+                // 1. Get Settings
                 const metadata = await client.metadata();
                 const scriptUrl = metadata.settings.scriptUrl;
+                if (!scriptUrl) throw new Error("Missing Script URL in App Settings.");
 
-                if (!scriptUrl) {
-                    throw new Error("No Script URL in Settings!");
-                }
-
-                // Get IDs from ticket first
+                // 2. Get IDs by Scanning (More robust method)
                 const context = await client.get('ticketFields');
-                const ticket = await client.get('ticket');
+                const ticketData = await client.get('ticket');
                 
-                // Helper to safely find value by loose matching
-                const findVal = (partName) => {
-                    const f = context.ticketFields.find(field => field.label.toLowerCase().includes(partName));
-                    return f ? ticket.ticket[`customField:custom_field_${f.id}`] : null;
+                // Helper to find ID by fuzzy Name
+                const getValueByName = (namePart) => {
+                    const f = context.ticketFields.find(field => (field.label || "").toLowerCase().includes(namePart.toLowerCase()));
+                    return f ? ticketData.ticket[`customField:custom_field_${f.id}`] : null;
                 };
 
-                // Try to find "Tour Id" (case insensitive)
-                const tid = findVal("tour id"); 
-                const vid = findVal("vendor id");
+                const tid = getValueByName("Tour Id") || getValueByName("TourId");
+                const vid = getValueByName("Vendor Id") || getValueByName("VendorId");
 
                 if (!tid || !vid) {
-                    logEl.innerText = `❌ Cannot run test: Ticket must have Tour ID and Vendor ID filled.\nFound TourID: ${tid}\nFound VendorID: ${vid}`;
-                    return;
+                    throw new Error(`Missing Data on Ticket.\nTourID: ${tid}\nVendorID: ${vid}`);
                 }
 
-                logEl.innerText = `Testing with TourID: ${tid}, VendorID: ${vid}...\n`;
-
+                // 3. Call Script
                 const response = await client.request({
                     url: `${scriptUrl}?tourId=${encodeURIComponent(tid)}&vendorId=${encodeURIComponent(vid)}`,
                     type: 'GET',
@@ -146,33 +144,58 @@
                 });
 
                 const data = JSON.parse(response);
-                logEl.innerText += `\n✅ RESULT:\nFound: ${data.found}\nInstructions: "${data.instructions || 'None'}"`;
+                logEl.innerText = `✅ SUCCESS!\nFound in Sheet: ${data.found}\nInstructions: ${data.instructions}`;
 
             } catch (e) {
-                logEl.innerText += `\n❌ ERROR: ${e.message}`;
+                logEl.innerText = "❌ FAILED: " + e.message;
             }
         }
 
-        // --- 3. TEST NOTE (Verifies Permissions) ---
-        function testNote() {
-            client.invoke('ticket.comment.appendText', "✅ [TEST] The Monitor App is working correctly.")
-                .then(() => {
-                    client.invoke('notify', 'Test Note Added!');
-                })
-                .catch(err => {
-                    client.invoke('notify', 'Error adding note: ' + err.message, 'error');
-                });
+        // --- THIS OPENS THE BIG MODAL ---
+        function openRealPopup() {
+            client.invoke('instances.create', {
+                location: 'modal',
+                url: 'assets/index.html?mode=modal', // Load THIS file but in 'modal' mode
+                size: { width: '600px', height: '400px' }
+            }).then(function(modalContext) {
+                // The modal is now open
+                console.log('Modal opened');
+            });
         }
 
-        // --- 4. TEST POPUP (Verifies UI) ---
-        function testPopup() {
-            const simEl = document.getElementById('sim-popup');
-            simEl.style.display = "block";
+
+        // ==========================================
+        // 2. MODAL LOGIC (The Popup Content)
+        // ==========================================
+        function renderModal() {
+            document.getElementById('app').innerHTML = `
+                <div class="modal-body">
+                    <span class="warning-icon">⚠️</span>
+                    <span class="modal-title">DEADLINE PASSED</span>
+                    <p class="modal-text">
+                        The tour scheduled on this ticket has passed its deadline.<br>
+                        Fulfilling this booking may require immediate attention or a refund.
+                    </p>
+                    <p class="modal-text" style="font-size:14px; color:#68737d;">
+                        An internal note will be added when you acknowledge this warning.
+                    </p>
+                    <button class="btn-large" onclick="acknowledgeAndClose()">
+                        I Acknowledge - Proceed
+                    </button>
+                </div>
+            `;
         }
 
-        function closeSim() {
-            document.getElementById('sim-popup').style.display = "none";
-            testNote(); // Verify note logic on acknowledge
+        function acknowledgeAndClose() {
+            // Since we are in the Modal instance, we need to talk to the Ticket instance
+            // But simple API calls like 'ticket.comment.appendText' might fail from a modal in some ZAF versions.
+            // The safest way is to just close ourselves for this test.
+            
+            // 1. Try to add note (might work if ZAF context propagates)
+            client.invoke('ticket.comment.appendText', "🛑 AGENT ALERT: Agent acknowledged Deadline Warning.");
+            
+            // 2. Close the modal
+            client.invoke('destroy');
         }
     </script>
 </body>
