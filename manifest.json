@@ -12,10 +12,14 @@
       "new_ticket_sidebar": {
         "url": "assets/index.html",
         "flexible": true
+      },
+      "ticket_sidebar": {
+        "url": "assets/index.html",
+        "flexible": true
       }
     }
   },
-  "version": "2.0",
+  "version": "2.1",
   "frameworkVersion": "2.0",
   "domainWhitelist": [
     "script.google.com"
