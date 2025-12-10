@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tour Monitor</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@zendeskgarden/css-bedrock@8.0.0">
+    <style>
+        body { padding: 10px; font-family: system-ui, -apple-system, sans-serif; color: #2f3941; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #1f73b7; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .alert-box { background: #fff4f5; border-left: 4px solid #d93f4c; padding: 15px; margin-bottom: 15px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .alert-title { font-weight: bold; color: #681219; margin-bottom: 5px; display: block; font-size: 14px; }
+        .deadline-box { background: #f8f9f9; padding: 15px; border-radius: 4px; text-align: center; margin-top: 15px; }
+        .deadline-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; color: white; font-weight: bold; font-size: 12px; margin-bottom: 10px; }
+        .badge-passed { background: #d93f4c; } 
+        .badge-urgent { background: #f79a3e; } 
+        .badge-normal { background: #03a84e; } 
+        .time-display { font-size: 24px; font-weight: 600; margin: 10px 0; }
+        .btn { background: #1f73b7; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 14px; margin-top: 10px; }
+        .btn:hover { background: #144a75; }
+        .hidden { display: none; }
+        .test-controls { margin-top: 20px; text-align: right; border-top: 1px solid #eee; padding-top: 10px; }
+        .btn-test { background: transparent; color: #1f73b7; border: 1px solid #1f73b7; font-size: 12px; padding: 5px 10px; cursor: pointer; }
+        .btn-test:hover { background: #eef4f9; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div id="loader" class="loader"></div>
+        <div id="content" class="hidden">
+            
+            <div id="instruction-area" class="hidden">
+                <div class="alert-box">
+                    <span class="alert-title">⚠️ SPECIAL INSTRUCTIONS</span>
+                    <div id="instruction-text"></div>
+                    <button class="btn" onclick="acknowledgeInstructions()">I Acknowledge</button>
+                </div>
+            </div>
+
+            <div id="deadline-area">
+                <div class="deadline-box">
+                    <span id="status-badge" class="deadline-badge">Checking...</span>
+                    <div id="timer-display" class="time-display">--:--</div>
+                    <div id="deadline-details" style="font-size: 12px; color: #68737d;"></div>
+                </div>
+            </div>
+
+            <div class="test-controls">
+                <button class="btn btn-test" onclick="manualRun()">🔄 Run Check Now</button>
+            </div>
+        </div>
+        <div id="error-msg" style="color: red; text-align: center; margin-top: 20px;"></div>
+    </div>
+
+    <script type="text/javascript" src="https://static.zdassets.com/zendesk_app_framework_sdk/2.0/zaf_sdk.min.js"></script>
+    <script>
+        var client = ZAFClient.init();
+        client.invoke('resize', { width: '100%', height: '350px' });
+
+        const TIMEZONE_MAP = {
+            "new york": "America/New_York", "london": "Europe/London", "dubai": "Asia/Dubai", 
+            "paris": "Europe/Paris", "rome": "Europe/Rome", "tokyo": "Asia/Tokyo",
+            "singapore": "Asia/Singapore", "sydney": "Australia/Sydney", "los angeles": "America/Los_Angeles",
+            "chicago": "America/Chicago", "berlin": "Europe/Berlin", "madrid": "Europe/Madrid"
+        };
+        
+        let deadlineInterval = null;
+
+        client.on('app.registered', function() {
+            fetchData();
+        });
+
+        function manualRun() {
+            document.getElementById('content').classList.add('hidden');
+            document.getElementById('loader').classList.remove('hidden');
+            fetchData();
+        }
+
+        async function fetchData() {
+            try {
+                if (deadlineInterval) clearInterval(deadlineInterval);
+
+                const context = await client.get('ticketFields');
+                const ticket = await client.get('ticket');
+                
+                const fields = context.ticketFields;
+                const getVal = (label) => {
+                    const field = fields.find(f => f.label === label);
+                    return field ? ticket.ticket[`customField:custom_field_${field.id}`] : null;
+                };
+
+                const tourId = getVal("Tour Id");
+                const vendorId = getVal("Vendor Id");
+                const city = getVal("City");
+                const date = getVal("Tour Date");
+                const time = getVal("Start time");
+                const completion = getVal("Completion Type");
+
+                // Reset UI
+                document.getElementById('instruction-area').classList.add('hidden');
+                
+                // 1. Check Instructions (Apps Script Only)
+                if(tourId && vendorId) {
+                    await checkInstructions(tourId, vendorId);
+                }
+
+                // 2. Check Deadline
+                if(city && date && time && !completion) {
+                    startDeadlineTimer(city, date, time);
+                } else if (completion) {
+                     document.getElementById('deadline-area').innerHTML = "<div class='deadline-box'><p style='color:green; font-weight:bold;'>✅ Booking Completed</p></div>";
+                } else {
+                    document.getElementById('deadline-area').innerHTML = "<div class='deadline-box'><p style='color:#999'>Waiting for tour details...</p></div>";
+                }
+
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('content').classList.remove('hidden');
+
+            } catch (err) {
+                showError(err.message);
+            }
+        }
+
+        async function checkInstructions(tourId, vendorId) {
+            const settings = await client.metadata();
+            const scriptUrl = settings.settings.scriptUrl;
+
+            if (!scriptUrl) return;
+
+            try {
+                // Call Apps Script Proxy
+                const response = await client.request({
+                    url: `${scriptUrl}?tourId=${encodeURIComponent(tourId)}&vendorId=${encodeURIComponent(vendorId)}`,
+                    type: 'GET',
+                    cors: true 
+                });
+
+                // Parse JSON response from Apps Script
+                const data = typeof response === 'string' ? JSON.parse(response) : response;
+                
+                if (data.found && data.instructions) {
+                    document.getElementById('instruction-area').classList.remove('hidden');
+                    document.getElementById('instruction-text').innerText = data.instructions;
+                }
+            } catch (e) {
+                console.error("Apps Script Error", e);
+            }
+        }
+
+        function startDeadlineTimer(city, dateStr, timeStr) {
+            const update = () => {
+                try {
+                    const cityKey = city.toLowerCase().trim();
+                    const tz = TIMEZONE_MAP[cityKey] || "UTC"; 
+                    
+                    // Construct date string safely
+                    const tourDateObj = new Date(`${dateStr}T${timeStr}:00`);
+                    if (isNaN(tourDateObj.getTime())) {
+                        document.getElementById('deadline-details').innerText = "Invalid Date Format";
+                        return;
+                    }
+
+                    const diffMs = tourDateObj - new Date(); 
+                    const diffMins = Math.floor(diffMs / 60000);
+                    
+                    const days = Math.floor(diffMins / 1440);
+                    const hours = Math.floor((diffMins % 1440) / 60);
+                    const mins = diffMins % 60;
+
+                    const displayEl = document.getElementById('timer-display');
+                    const badgeEl = document.getElementById('status-badge');
+                    const detailsEl = document.getElementById('deadline-details');
+
+                    if (diffMins < 0) {
+                        badgeEl.className = "deadline-badge badge-passed";
+                        badgeEl.innerText = "DEADLINE PASSED";
+                        displayEl.innerText = "Late by " + Math.abs(diffMins) + "m";
+                    } else if (diffMins < 120) {
+                        badgeEl.className = "deadline-badge badge-urgent";
+                        badgeEl.innerText = "URGENT";
+                        displayEl.innerText = `${hours}h ${mins}m left`;
+                    } else {
+                        badgeEl.className = "deadline-badge badge-normal";
+                        badgeEl.innerText = "ON TIME";
+                        displayEl.innerText = `${days}d ${hours}h ${mins}m`;
+                    }
+                    detailsEl.innerText = `City: ${city} | Tour: ${timeStr}`;
+
+                } catch (e) { console.error(e); }
+            };
+            update();
+            deadlineInterval = setInterval(update, 30000);
+        }
+
+        function acknowledgeInstructions() {
+            document.getElementById('instruction-area').classList.add('hidden');
+            client.invoke('ticket.comment.appendText', "Acknowledged tour instructions.");
+        }
+
+        function showError(msg) {
+            document.getElementById('loader').classList.add('hidden');
+            document.getElementById('error-msg').innerText = "Error: " + msg;
+        }
+    </script>
+</body>
+</html>
