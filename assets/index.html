@@ -8,8 +8,8 @@
         body { padding: 10px; font-family: system-ui, -apple-system, sans-serif; color: #2f3941; }
         .hidden { display: none; }
         
-        /* SIDEBAR STATUS STYLES */
-        .status-box { padding: 10px; border-radius: 4px; background: #f8f9f9; border: 1px solid #d8dcde; margin-bottom: 10px; text-align: center; }
+        /* Status Box */
+        .status-box { padding: 10px; border-radius: 4px; background: #f8f9f9; border: 1px solid #d8dcde; margin-bottom: 10px; text-align: center; font-size: 13px; }
         .status-loading { color: #1f73b7; font-weight: bold; }
         .status-active { background: #fff4f5; color: #d93f4c; border-color: #d93f4c; font-weight: bold; }
         .status-clean { color: #03a84e; }
@@ -17,13 +17,12 @@
         .btn { width: 100%; padding: 8px; background: #1f73b7; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px; }
         .btn:hover { background: #144a75; }
 
-        /* MODAL STYLES (THE POPUP) */
+        /* Modal Styles */
         .modal-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 20px; }
         .warning-icon { font-size: 64px; margin-bottom: 20px; }
         .modal-title { font-size: 24px; font-weight: bold; color: #d93f4c; margin-bottom: 15px; }
         .modal-text { font-size: 16px; line-height: 1.6; color: #2f3941; margin-bottom: 30px; background: #fff4f5; padding: 15px; border-radius: 8px; border: 1px solid #eecdd0; width: 100%; }
         .btn-large { padding: 15px 40px; font-size: 16px; background: #d93f4c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .btn-large:hover { background: #a81825; }
     </style>
 </head>
 <body>
@@ -33,95 +32,84 @@
     <script>
         var client = ZAFClient.init();
 
-        // 1. DETECT MODE: Are we in the Sidebar or the Popup?
-        const params = new URLSearchParams(window.location.search);
-        const isModal = params.get('mode') === 'modal';
-        const instructionsParam = params.get('instr'); // Instructions passed to modal
+        // =========================================================
+        // ⚙️ CONFIGURATION (PRE-FILLED WITH YOUR IDs)
+        // =========================================================
+        const FIELD_IDS = {
+            tourId: 360024232711,
+            vendorId: 360024198072,
+            startTime: 360021522271,
+            city: 360021522151,
+            tourDate: 360024232231
+        };
+        // =========================================================
 
-        if (isModal) {
-            renderModal(instructionsParam);
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get('mode');
+        const instrData = params.get('instr');
+
+        if (mode === 'modal') {
+            renderModal(instrData);
         } else {
-            // Sidebar Mode
-            client.invoke('resize', { width: '100%', height: '180px' });
             renderSidebar();
-            
-            // AUTO-RUN ON LOAD
+            // Auto-run when app loads
             client.on('app.registered', function() {
-                checkTicketAutomatically();
+                runChecks();
             });
         }
 
-        // ==========================================
-        // SIDEBAR LOGIC (Background Checker)
-        // ==========================================
+        // --- SIDEBAR LOGIC ---
         function renderSidebar() {
+            client.invoke('resize', { width: '100%', height: '150px' });
             document.getElementById('app').innerHTML = `
                 <div id="status-display" class="status-box">
-                    <div class="status-loading">Initializing Monitor...</div>
+                    <div class="status-loading">Initializing...</div>
                 </div>
-                <div style="font-size: 10px; color: #aaa; text-align: center;">V4.0 Auto-Live</div>
-                <button class="btn" onclick="checkTicketAutomatically()">🔄 Force Re-Check</button>
+                <button class="btn" onclick="runChecks()">🔄 Check Now</button>
             `;
         }
 
-        async function checkTicketAutomatically() {
+        async function runChecks() {
             const statusEl = document.getElementById('status-display');
-            statusEl.innerHTML = '<div class="status-loading">⏳ Checking Sheet...</div>';
+            statusEl.innerHTML = '<div class="status-loading">⏳ Checking...</div>';
 
             try {
-                // 1. Get Settings
-                const metadata = await client.metadata();
-                const scriptUrl = metadata.settings.scriptUrl;
-                if (!scriptUrl) throw new Error("Please set Script URL in App Settings");
+                // 1. Get Data from Ticket
+                const ticket = await client.get('ticket');
+                const tData = ticket.ticket;
 
-                // 2. Safe Field Scanning (Fixes 'toLowerCase' error)
-                const context = await client.get('ticketFields');
-                const ticketData = await client.get('ticket');
-                
-                // Helper to find ID safely using Regex (Case Insensitive)
-                const findValue = (regex) => {
-                    const field = context.ticketFields.find(f => {
-                        // FIX: Handle null labels safely
-                        const label = f.label || ""; 
-                        return regex.test(label);
-                    });
-                    if (!field) return null;
-                    return ticketData.ticket[`customField:custom_field_${field.id}`];
-                };
+                // Grab values using YOUR IDs
+                const tid = tData[`customField:custom_field_${FIELD_IDS.tourId}`];
+                const vid = tData[`customField:custom_field_${FIELD_IDS.vendorId}`];
 
-                // Find fields regardless of slight spelling diffs
-                const tid = findValue(/tour\s*id/i);
-                const vid = findValue(/vendor\s*id/i);
+                // 2. Check Google Sheet (Instructions)
+                if (tid && vid) {
+                    const metadata = await client.metadata();
+                    const scriptUrl = metadata.settings.scriptUrl;
 
-                if (!tid || !vid) {
-                    statusEl.innerHTML = '<div style="color:#666">Waiting for Tour ID & Vendor ID...</div>';
-                    return;
+                    if (scriptUrl) {
+                        const response = await client.request({
+                            url: `${scriptUrl}?tourId=${encodeURIComponent(tid)}&vendorId=${encodeURIComponent(vid)}`,
+                            type: 'GET',
+                            cors: true
+                        });
+                        const result = JSON.parse(response);
+
+                        if (result.found) {
+                            statusEl.innerHTML = '<div class="status-active">⚠️ INSTRUCTIONS FOUND</div>';
+                            // Launch Popup
+                            client.invoke('instances.create', {
+                                location: 'modal',
+                                url: `assets/index.html?mode=modal&instr=${encodeURIComponent(result.instructions)}`,
+                                size: { width: '600px', height: '450px' }
+                            });
+                            return; // Stop here if instructions found
+                        }
+                    }
                 }
 
-                // 3. Call Google Script
-                const response = await client.request({
-                    url: `${scriptUrl}?tourId=${encodeURIComponent(tid)}&vendorId=${encodeURIComponent(vid)}`,
-                    type: 'GET',
-                    cors: true
-                });
-
-                const data = JSON.parse(response);
-
-                if (data.found) {
-                    // FOUND! Show Red Status & Trigger Popup
-                    statusEl.innerHTML = '<div class="status-active">⚠️ INSTRUCTIONS FOUND</div>';
-                    
-                    // OPEN THE MODAL POPUP AUTOMATICALLY
-                    client.invoke('instances.create', {
-                        location: 'modal',
-                        url: `assets/index.html?mode=modal&instr=${encodeURIComponent(data.instructions)}`,
-                        size: { width: '600px', height: '450px' }
-                    });
-
-                } else {
-                    // Not Found or Checkbox not checked
-                    statusEl.innerHTML = '<div class="status-clean">✓ No Special Instructions</div>';
-                }
+                // 3. If no instructions, show clear
+                statusEl.innerHTML = '<div class="status-clean">✓ No Special Instructions</div>';
 
             } catch (e) {
                 console.error(e);
@@ -129,27 +117,24 @@
             }
         }
 
-        // ==========================================
-        // MODAL LOGIC (The Actual Popup)
-        // ==========================================
-        function renderModal(instructions) {
+        // --- MODAL LOGIC (POPUP) ---
+        function renderModal(instr) {
             document.getElementById('app').innerHTML = `
                 <div class="modal-wrapper">
                     <div class="warning-icon">⚠️</div>
                     <div class="modal-title">IMPORTANT INSTRUCTIONS</div>
-                    <div class="modal-text">${decodeURIComponent(instructions || "No details provided.")}</div>
+                    <div class="modal-text">${decodeURIComponent(instr || "No details provided.")}</div>
                     
-                    <button class="btn-large" onclick="acknowledge()">
+                    <button class="btn-large" onclick="ack()">
                         I ACKNOWLEDGE
                     </button>
                 </div>
             `;
         }
 
-        function acknowledge() {
-            // Add note and close
-            client.invoke('ticket.comment.appendText', "✅ Agent acknowledged special instructions popup.");
-            client.invoke('destroy'); // Closes the modal
+        function ack() {
+            client.invoke('ticket.comment.appendText', "✅ Agent acknowledged special instructions.");
+            client.invoke('destroy');
         }
     </script>
 </body>
