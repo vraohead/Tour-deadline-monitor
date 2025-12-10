@@ -10,20 +10,18 @@
   "location": {
     "support": {
       "ticket_sidebar": {
-        "url": "assets/index.html?mode=sidebar",
+        "url": "assets/index.html",
         "flexible": true
       },
       "new_ticket_sidebar": {
-        "url": "assets/index.html?mode=sidebar",
+        "url": "assets/index.html",
         "flexible": true
       }
     }
   },
-  "version": "3.0",
+  "version": "4.0",
   "frameworkVersion": "2.0",
-  "domainWhitelist": [
-    "script.google.com"
-  ],
+  "domainWhitelist": ["script.google.com"],
   "parameters": [
     {
       "name": "scriptUrl",
