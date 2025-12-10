@@ -1,0 +1,31 @@
+{
+  "name": "Tour Deadline Monitor",
+  "author": {
+    "name": "Biman Ghosh",
+    "email": "biman.ghosh@headout.com",
+    "url": "https://headout.zendesk.com"
+  },
+  "defaultLocale": "en",
+  "private": true,
+  "location": {
+    "support": {
+      "new_ticket_sidebar": {
+        "url": "assets/index.html",
+        "flexible": true
+      }
+    }
+  },
+  "version": "2.0",
+  "frameworkVersion": "2.0",
+  "domainWhitelist": [
+    "script.google.com"
+  ],
+  "parameters": [
+    {
+      "name": "scriptUrl",
+      "type": "text",
+      "required": true,
+      "secure": false
+    }
+  ]
+}
