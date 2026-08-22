@@ -228,9 +228,11 @@ async function writeTagToZendesk(ticketId, fullTag) {
     return { ok: false, error: 'MINDED_TAG_FIELD_ID env var not set' };
   }
 
+  const easyTag = fullTag.replace(/::/g, '__');
   const body = {
     ticket: {
-      custom_fields: [{ id: Number(fieldId), value: fullTag }]
+      custom_fields: [{ id: Number(fieldId), value: fullTag }],
+      additional_tags: [easyTag]
     }
   };
 
