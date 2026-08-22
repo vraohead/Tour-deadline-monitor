@@ -1,0 +1,21 @@
+{
+  "name": "headout-interaction-tags",
+  "version": "1.0.0",
+  "description": "Headout interaction tag taxonomy API — classify Zendesk support tickets using OpenAI and the NEW L1::L2::L3 taxonomy.",
+  "main": "api/server.js",
+  "scripts": {
+    "start": "node api/server.js",
+    "dev": "node --watch api/server.js",
+    "test": "node scripts/test_classify.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "openai": "^4.47.0"
+  },
+  "devDependencies": {
+    "dotenv": "^16.3.1"
+  }
+}
