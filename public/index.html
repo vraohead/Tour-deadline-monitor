@@ -1,0 +1,1465 @@
+<title>Interaction Tags</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+/* ── tokens ─────────────────────────────────────────── */
+:root {
+  --bg:            #f4f6fb;
+  --surface:       #ffffff;
+  --surface-2:     #eef1f8;
+  --border:        #dde3f0;
+  --border-strong: #b8c4de;
+  --accent:        #3b5bfa;
+  --accent-hover:  #2847e0;
+  --accent-subtle: #eef0ff;
+  --text:          #111827;
+  --text-muted:    #6b7280;
+  --text-placeholder: #9ca3af;
+  --green:         #16a34a;
+  --green-bg:      #dcfce7;
+  --amber:         #d97706;
+  --amber-bg:      #fef3c7;
+  --red:           #dc2626;
+  --red-bg:        #fee2e2;
+  --yellow-bg:     #fefce8;
+  --shadow:        0 1px 3px 0 rgba(30,40,90,.08), 0 1px 2px -1px rgba(30,40,90,.06);
+  --shadow-md:     0 4px 12px rgba(30,40,90,.12);
+  --radius:        8px;
+  --radius-lg:     12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:            #0e1119;
+    --surface:       #16192a;
+    --surface-2:     #1d2138;
+    --border:        #252b42;
+    --border-strong: #374060;
+    --accent:        #5b78ff;
+    --accent-hover:  #7390ff;
+    --accent-subtle: #1a2050;
+    --text:          #e8ecf5;
+    --text-muted:    #8b96b0;
+    --text-placeholder: #545f7a;
+    --green:         #4ade80;
+    --green-bg:      #052e16;
+    --amber:         #fbbf24;
+    --amber-bg:      #1c1300;
+    --red:           #f87171;
+    --red-bg:        #2d0b0b;
+    --yellow-bg:     #1c1900;
+    --shadow:        0 1px 3px rgba(0,0,0,.4);
+    --shadow-md:     0 4px 12px rgba(0,0,0,.5);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg:            #0e1119;
+  --surface:       #16192a;
+  --surface-2:     #1d2138;
+  --border:        #252b42;
+  --border-strong: #374060;
+  --accent:        #5b78ff;
+  --accent-hover:  #7390ff;
+  --accent-subtle: #1a2050;
+  --text:          #e8ecf5;
+  --text-muted:    #8b96b0;
+  --text-placeholder: #545f7a;
+  --green:         #4ade80;
+  --green-bg:      #052e16;
+  --amber:         #fbbf24;
+  --amber-bg:      #1c1300;
+  --red:           #f87171;
+  --red-bg:        #2d0b0b;
+  --yellow-bg:     #1c1900;
+  --shadow:        0 1px 3px rgba(0,0,0,.4);
+  --shadow-md:     0 4px 12px rgba(0,0,0,.5);
+}
+
+/* ── reset + base ───────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input, select, textarea {
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  background: var(--surface);
+  color: var(--text);
+}
+input::placeholder, textarea::placeholder { color: var(--text-placeholder); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── header ─────────────────────────────────────────── */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.logo-mark {
+  width: 32px;
+  height: 32px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo-mark svg { display: block; }
+
+.logo-text {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+
+.logo-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.tabs {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.tab-btn {
+  padding: 6px 18px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  transition: color .15s, background .15s;
+}
+
+.tab-btn:hover { color: var(--text); background: var(--surface-2); }
+.tab-btn.active { color: var(--accent); background: var(--accent-subtle); font-weight: 600; }
+
+.header-right {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.secret-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.secret-wrap input {
+  width: 180px;
+  padding: 6px 32px 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--surface-2);
+}
+
+.secret-wrap input:focus { border-color: var(--accent); }
+
+.secret-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-right: 6px;
+}
+
+.auth-status {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--text-placeholder);
+  flex-shrink: 0;
+  transition: background .2s;
+}
+.auth-status.set { background: var(--green); }
+
+/* ── main layout ─────────────────────────────────────── */
+.main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 28px 24px;
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── ai prompt bar ───────────────────────────────────── */
+.ai-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  box-shadow: var(--shadow);
+}
+
+.ai-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%);
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-bar-body { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+
+.ai-bar-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.ai-bar-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.ai-prompt-input {
+  flex: 1;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  background: var(--surface-2);
+  transition: border-color .15s;
+}
+.ai-prompt-input:focus { border-color: var(--accent); background: var(--surface); }
+
+/* ── toolbar ─────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 240px;
+  background: var(--surface);
+  transition: border-color .15s;
+}
+.search-input:focus { border-color: var(--accent); }
+
+.filter-select {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  min-width: 160px;
+  cursor: pointer;
+}
+.filter-select:focus { border-color: var(--accent); }
+
+.toolbar-spacer { flex: 1; }
+
+.tag-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── buttons ─────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background .15s, opacity .15s, box-shadow .15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(59,91,250,.3);
+}
+.btn-primary:hover { background: var(--accent-hover); box-shadow: 0 2px 6px rgba(59,91,250,.4); }
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--surface-2); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+  padding: 6px 10px;
+}
+.btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+
+.btn-danger {
+  background: var(--red-bg);
+  color: var(--red);
+  border: 1px solid transparent;
+}
+.btn-danger:hover { background: var(--red); color: #fff; }
+
+.btn-sm { padding: 5px 10px; font-size: 13px; }
+
+.btn:disabled { opacity: .5; pointer-events: none; }
+
+.btn-ai {
+  background: linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(59,91,250,.3);
+}
+.btn-ai:hover { opacity: .9; box-shadow: 0 2px 8px rgba(59,91,250,.4); }
+
+/* ── table ───────────────────────────────────────────── */
+.table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: fixed;
+}
+
+thead th {
+  background: var(--surface-2);
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background .1s;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--surface-2); }
+
+td {
+  padding: 0;
+  vertical-align: top;
+}
+
+td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+
+tbody tr:hover td:first-child,
+tbody tr.row-modified td:first-child { background: inherit; }
+
+.cell-content {
+  display: block;
+  padding: 8px 12px;
+  min-height: 36px;
+  outline: none;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.cell-content:focus {
+  background: var(--accent-subtle);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  border-radius: 3px;
+}
+
+td:first-child .cell-content {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+/* row states */
+.row-modified  { background: var(--yellow-bg) !important; }
+.row-added     { background: var(--green-bg)  !important; }
+.row-deleted   { background: var(--red-bg)    !important; text-decoration: line-through; opacity: .7; pointer-events: none; }
+
+.row-modified  td:first-child { background: var(--yellow-bg) !important; }
+.row-added     td:first-child { background: var(--green-bg)  !important; }
+.row-deleted   td:first-child { background: var(--red-bg)    !important; }
+
+.delete-btn {
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  transition: color .15s, background .15s;
+}
+.delete-btn:hover { background: var(--red-bg); color: var(--red); }
+
+/* col widths */
+.col-full_tag              { width: 220px; min-width: 180px; }
+.col-l1                    { width: 140px; }
+.col-l2                    { width: 160px; }
+.col-l3                    { width: 120px; }
+.col-intent                { width: 200px; }
+.col-trip_stage            { width: 100px; }
+.col-definition            { width: 260px; }
+.col-minded_equivalent_tag { width: 160px; }
+.col-actions               { width: 48px; }
+
+/* ── modal ───────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(3px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal-backdrop.hidden { display: none; }
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 680px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -.3px;
+}
+
+.modal-close {
+  font-size: 22px;
+  color: var(--text-muted);
+  background: none;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.modal-close:hover { background: var(--surface-2); color: var(--text); }
+
+.modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.explanation-box {
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.changes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.change-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.change-pill {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 99px;
+  flex-shrink: 0;
+}
+
+.pill-add    { background: var(--green-bg); color: var(--green); }
+.pill-remove { background: var(--red-bg);   color: var(--red);   }
+.pill-modify { background: var(--amber-bg); color: var(--amber); }
+
+.change-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  word-break: break-all;
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.token-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+/* ── data tab ────────────────────────────────────────── */
+.data-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.data-notice {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 40px 24px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.data-notice-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.data-notice h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.data-notice p {
+  font-size: 14px;
+  color: var(--text-muted);
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.data-notice code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.status-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.status-open   { background: var(--amber-bg); color: var(--amber); }
+.status-closed { background: var(--surface-2); color: var(--text-muted); }
+.status-solved { background: var(--green-bg); color: var(--green); }
+.status-pending { background: var(--accent-subtle); color: var(--accent); }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  justify-content: flex-end;
+}
+
+.page-info {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── skeleton ────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 4px;
+  height: 16px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── toasts ──────────────────────────────────────────── */
+.toast-area {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.toast {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  box-shadow: var(--shadow-md);
+  font-size: 14px;
+  font-weight: 500;
+  max-width: 340px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slide-up .2s ease;
+}
+
+.toast.toast-success { border-left: 3px solid var(--green); }
+.toast.toast-error   { border-left: 3px solid var(--red);   }
+.toast.toast-info    { border-left: 3px solid var(--accent); }
+
+.toast-icon { font-size: 16px; flex-shrink: 0; }
+.toast-msg  { flex: 1; line-height: 1.4; }
+
+@keyframes slide-up {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+/* ── loading spinner ─────────────────────────────────── */
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── empty state ─────────────────────────────────────── */
+.empty-row td {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ── unsaved badge ───────────────────────────────────── */
+.unsaved-badge {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--amber);
+  background: var(--amber-bg);
+  padding: 4px 10px;
+  border-radius: 99px;
+}
+.unsaved-badge.visible { display: flex; }
+
+/* ── misc ────────────────────────────────────────────── */
+.section-heading {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  margin-bottom: 10px;
+}
+
+.changes-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+@media (max-width: 700px) {
+  .header-inner { gap: 8px; }
+  .logo-sub { display: none; }
+  .secret-label { display: none; }
+  .secret-wrap input { width: 120px; }
+  .tabs { gap: 0; }
+  .tab-btn { padding: 6px 12px; font-size: 13px; }
+  .main { padding: 16px 12px; }
+}
+</style>
+
+<!-- header -->
+<header class="header">
+  <div class="header-inner">
+    <a class="logo" href="/">
+      <div class="logo-mark">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="2" width="6" height="6" rx="1.5" fill="white" fill-opacity=".9"/>
+          <rect x="10" y="2" width="6" height="6" rx="1.5" fill="white" fill-opacity=".6"/>
+          <rect x="2" y="10" width="6" height="6" rx="1.5" fill="white" fill-opacity=".6"/>
+          <rect x="10" y="10" width="6" height="6" rx="1.5" fill="white" fill-opacity=".9"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-text">Interaction Tags</div>
+        <div class="logo-sub">Headout</div>
+      </div>
+    </a>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="taxonomy">Taxonomy</button>
+      <button class="tab-btn"        data-tab="data">Data</button>
+    </nav>
+
+    <div class="header-right">
+      <span class="secret-label">API Key</span>
+      <div class="secret-wrap">
+        <input type="password" id="apiSecretInput" placeholder="Bearer token…" autocomplete="off">
+      </div>
+      <div class="auth-status" id="authStatus" title="No API key set"></div>
+    </div>
+  </div>
+</header>
+
+<!-- main -->
+<main class="main">
+
+  <!-- ── Taxonomy tab ─────────────────────────────────── -->
+  <div class="tab-panel active" id="panel-taxonomy">
+
+    <!-- AI bar -->
+    <div class="ai-bar">
+      <div class="ai-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" fill="white" fill-opacity=".9"/>
+        </svg>
+      </div>
+      <div class="ai-bar-body">
+        <div class="ai-bar-hint">AI Taxonomy Editor</div>
+        <div class="ai-bar-row">
+          <input
+            class="ai-prompt-input"
+            id="aiPromptInput"
+            type="text"
+            placeholder="Describe changes to make (e.g. 'Add a tag for wheelchair accessibility queries')"
+          >
+          <button class="btn btn-ai" id="aiApplyBtn">
+            <span id="aiApplyBtnText">Apply with AI</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- toolbar -->
+    <div class="toolbar">
+      <input class="search-input" id="searchInput" type="search" placeholder="Search tags…">
+      <select class="filter-select" id="l1Filter">
+        <option value="">All L1 categories</option>
+      </select>
+      <span class="unsaved-badge" id="unsavedBadge">
+        <span>●</span> Unsaved changes
+      </span>
+      <div class="toolbar-spacer"></div>
+      <span class="tag-count" id="tagCount"></span>
+      <button class="btn btn-secondary btn-sm" id="addTagBtn">+ Add Tag</button>
+      <button class="btn btn-primary" id="saveBtn">Save Changes</button>
+    </div>
+
+    <!-- table -->
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table id="taxonomyTable">
+          <colgroup>
+            <col class="col-full_tag">
+            <col class="col-l1">
+            <col class="col-l2">
+            <col class="col-l3">
+            <col class="col-intent">
+            <col class="col-trip_stage">
+            <col class="col-definition">
+            <col class="col-minded_equivalent_tag">
+            <col class="col-actions">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>full_tag</th>
+              <th>l1</th>
+              <th>l2</th>
+              <th>l3</th>
+              <th>intent</th>
+              <th>trip_stage</th>
+              <th>definition</th>
+              <th>minded_equivalent_tag</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="taxonomyBody">
+            <tr class="empty-row"><td colspan="9">Loading taxonomy…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Data tab ──────────────────────────────────────── -->
+  <div class="tab-panel" id="panel-data">
+    <div class="data-toolbar">
+      <button class="btn btn-secondary" id="refreshDataBtn">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">
+          <path d="M13.7 2.3A7.5 7.5 0 102 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M2 3.5V8H6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Refresh
+      </button>
+      <span class="tag-count" id="dataCount"></span>
+    </div>
+
+    <div id="dataContent">
+      <div class="data-notice">
+        <div class="data-notice-icon">⏳</div>
+        <h3>Loading data…</h3>
+        <p>Fetching classified tickets from Zendesk.</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- AI diff modal -->
+<div class="modal-backdrop hidden" id="aiModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modalTitle">AI-Proposed Changes</div>
+      </div>
+      <button class="modal-close" id="modalClose" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <!-- filled by JS -->
+    </div>
+    <div class="modal-footer">
+      <span class="token-note" id="tokenNote"></span>
+      <button class="btn btn-secondary" id="modalCancel">Cancel</button>
+      <button class="btn btn-primary" id="modalAccept">Accept Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- toast area -->
+<div class="toast-area" id="toastArea"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════
+   STATE
+   ════════════════════════════════════════════════════════ */
+let allTags       = [];
+let pendingAiTags = null; // updated_tags from AI response
+let dataPage      = 1;
+const DATA_PER_PAGE = 20;
+let dataTotal     = 0;
+let hasUnsaved    = false;
+
+/* ════════════════════════════════════════════════════════
+   UTILS
+   ════════════════════════════════════════════════════════ */
+function apiSecret() {
+  return localStorage.getItem('api_secret') || '';
+}
+
+function authHeaders() {
+  const s = apiSecret();
+  const h = { 'Content-Type': 'application/json' };
+  if (s) h['Authorization'] = `Bearer ${s}`;
+  return h;
+}
+
+function toast(msg, type = 'info') {
+  const area = document.getElementById('toastArea');
+  const el   = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  const icons = { success: '✓', error: '✕', info: 'ℹ' };
+  el.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ'}</span><span class="toast-msg">${msg}</span>`;
+  area.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function setUnsaved(val) {
+  hasUnsaved = val;
+  document.getElementById('unsavedBadge').classList.toggle('visible', val);
+}
+
+/* ════════════════════════════════════════════════════════
+   TABS
+   ════════════════════════════════════════════════════════ */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`panel-${tab}`).classList.add('active');
+    if (tab === 'data') loadData();
+  });
+});
+
+/* ════════════════════════════════════════════════════════
+   API SECRET
+   ════════════════════════════════════════════════════════ */
+const secretInput = document.getElementById('apiSecretInput');
+const authDot     = document.getElementById('authStatus');
+
+function updateAuthUI() {
+  const val = apiSecret();
+  secretInput.value = val;
+  authDot.classList.toggle('set', !!val);
+  authDot.title = val ? 'API key set' : 'No API key set';
+}
+
+secretInput.addEventListener('input', () => {
+  const val = secretInput.value.trim();
+  if (val) localStorage.setItem('api_secret', val);
+  else     localStorage.removeItem('api_secret');
+  updateAuthUI();
+});
+
+updateAuthUI();
+
+/* ════════════════════════════════════════════════════════
+   TAXONOMY RENDERING
+   ════════════════════════════════════════════════════════ */
+const COLS = ['full_tag', 'l1', 'l2', 'l3', 'intent', 'trip_stage', 'definition', 'minded_equivalent_tag'];
+
+function renderTable(tags, changedFullTags = []) {
+  const body = document.getElementById('taxonomyBody');
+  const changed = new Set(changedFullTags);
+  const searchVal = document.getElementById('searchInput').value.toLowerCase();
+  const l1Val     = document.getElementById('l1Filter').value;
+
+  // Populate L1 filter
+  const l1Filter = document.getElementById('l1Filter');
+  const currentL1 = l1Filter.value;
+  const l1s = [...new Set(allTags.map(t => t.l1))].sort();
+  l1Filter.innerHTML = '<option value="">All L1 categories</option>' +
+    l1s.map(l => `<option value="${esc(l)}" ${l === currentL1 ? 'selected' : ''}>${esc(l)}</option>`).join('');
+
+  const visible = tags.filter(t => {
+    if (l1Val && t.l1 !== l1Val) return false;
+    if (searchVal) {
+      return COLS.some(c => String(t[c] ?? '').toLowerCase().includes(searchVal));
+    }
+    return true;
+  });
+
+  document.getElementById('tagCount').textContent = `${visible.length} of ${tags.length} tags`;
+
+  if (!visible.length) {
+    body.innerHTML = `<tr class="empty-row"><td colspan="9">No tags match your search.</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = visible.map(tag => {
+    const orig     = JSON.stringify(tag);
+    const isNew    = tag._new;
+    const isDel    = tag._deleted;
+    const isMod    = !isNew && !isDel && changed.has(tag.full_tag);
+    const rowClass = isNew ? 'row-added' : isDel ? 'row-deleted' : isMod ? 'row-modified' : '';
+    return `<tr class="${rowClass}" data-original='${esc(orig)}'>
+      ${COLS.map(col =>
+        `<td><span class="cell-content" contenteditable="${isDel ? 'false' : 'true'}" data-col="${col}">${esc(tag[col] ?? '')}</span></td>`
+      ).join('')}
+      <td style="text-align:center;vertical-align:middle">
+        <button class="delete-btn" title="Delete row">×</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function collectTags() {
+  const rows = document.querySelectorAll('#taxonomyBody tr[data-original]');
+  const tags = [];
+  rows.forEach(row => {
+    if (row.classList.contains('row-deleted')) return;
+    const tag = {};
+    row.querySelectorAll('[data-col]').forEach(cell => {
+      tag[cell.dataset.col] = cell.textContent.trim();
+    });
+    tags.push(tag);
+  });
+  return tags;
+}
+
+function getRowTag(row) {
+  const tag = {};
+  row.querySelectorAll('[data-col]').forEach(cell => {
+    tag[cell.dataset.col] = cell.textContent.trim();
+  });
+  return tag;
+}
+
+/* ════════════════════════════════════════════════════════
+   LOAD TAXONOMY
+   ════════════════════════════════════════════════════════ */
+async function loadTaxonomy() {
+  try {
+    const res = await fetch('/taxonomy', { headers: authHeaders() });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    allTags = data.tags || [];
+    renderTable(allTags);
+    setUnsaved(false);
+  } catch (err) {
+    toast(`Failed to load taxonomy: ${err.message}`, 'error');
+    document.getElementById('taxonomyBody').innerHTML =
+      `<tr class="empty-row"><td colspan="9">Failed to load. Check your API key.</td></tr>`;
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   TABLE EVENTS (delegation)
+   ════════════════════════════════════════════════════════ */
+document.getElementById('taxonomyTable').addEventListener('click', e => {
+  if (e.target.classList.contains('delete-btn')) {
+    const row = e.target.closest('tr');
+    if (row) {
+      row.classList.add('row-deleted');
+      setUnsaved(true);
+    }
+  }
+});
+
+document.getElementById('taxonomyTable').addEventListener('input', e => {
+  if (e.target.classList.contains('cell-content')) {
+    const row = e.target.closest('tr');
+    if (row && !row.classList.contains('row-added')) {
+      row.classList.add('row-modified');
+    }
+    setUnsaved(true);
+  }
+});
+
+/* ════════════════════════════════════════════════════════
+   SEARCH + FILTER
+   ════════════════════════════════════════════════════════ */
+document.getElementById('searchInput').addEventListener('input', () => {
+  renderTable(allTags);
+});
+
+document.getElementById('l1Filter').addEventListener('change', () => {
+  renderTable(allTags);
+});
+
+/* ════════════════════════════════════════════════════════
+   ADD TAG
+   ════════════════════════════════════════════════════════ */
+document.getElementById('addTagBtn').addEventListener('click', () => {
+  const body = document.getElementById('taxonomyBody');
+  // Remove empty-row if present
+  const empty = body.querySelector('.empty-row');
+  if (empty) empty.remove();
+
+  const blankTag = { full_tag:'', l1:'', l2:'', l3:'', intent:'', trip_stage:'', definition:'', minded_equivalent_tag:'', _new: true };
+  const orig = JSON.stringify(blankTag);
+  const row = document.createElement('tr');
+  row.className = 'row-added';
+  row.dataset.original = orig;
+  row.innerHTML = COLS.map(col =>
+    `<td><span class="cell-content" contenteditable="true" data-col="${col}"></span></td>`
+  ).join('') + `<td style="text-align:center;vertical-align:middle"><button class="delete-btn" title="Delete row">×</button></td>`;
+  body.prepend(row);
+  row.querySelector('[data-col="full_tag"]').focus();
+  setUnsaved(true);
+});
+
+/* ════════════════════════════════════════════════════════
+   SAVE CHANGES
+   ════════════════════════════════════════════════════════ */
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  const tags = collectTags();
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.disabled = true;
+  const orig = saveBtn.textContent;
+  saveBtn.innerHTML = '<span class="spinner"></span> Saving…';
+
+  try {
+    const res = await fetch('/taxonomy', {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ tags }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    allTags = tags;
+    renderTable(allTags);
+    setUnsaved(false);
+    toast(`Saved ${data.total_tags} tags (v${data.version})`, 'success');
+  } catch (err) {
+    toast(`Save failed: ${err.message}`, 'error');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = orig;
+  }
+});
+
+/* ════════════════════════════════════════════════════════
+   AI EDIT
+   ════════════════════════════════════════════════════════ */
+document.getElementById('aiApplyBtn').addEventListener('click', async () => {
+  const prompt = document.getElementById('aiPromptInput').value.trim();
+  if (!prompt) { toast('Enter a prompt first.', 'info'); return; }
+
+  const btn     = document.getElementById('aiApplyBtn');
+  const btnText = document.getElementById('aiApplyBtnText');
+  btn.disabled  = true;
+  btnText.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-color:rgba(255,255,255,.3);border-top-color:#fff"></span> Thinking…';
+
+  try {
+    const res = await fetch('/taxonomy/ai-edit', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ prompt }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    showAiModal(data);
+  } catch (err) {
+    toast(`AI edit failed: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = 'Apply with AI';
+  }
+});
+
+function showAiModal(data) {
+  pendingAiTags = data.updated_tags;
+
+  const body = document.getElementById('modalBody');
+  const changes = data.changes || [];
+  const explanation = data.explanation || '';
+
+  const pillClass = a => ({ add: 'pill-add', remove: 'pill-remove', modify: 'pill-modify' }[a] || 'pill-modify');
+  const pillLabel = a => ({ add: 'Add', remove: 'Remove', modify: 'Modify' }[a] || a);
+
+  body.innerHTML = `
+    <div>
+      <div class="section-heading">Explanation</div>
+      <div class="explanation-box">${esc(explanation)}</div>
+    </div>
+    <div>
+      <div class="section-heading">Changes (${changes.length})</div>
+      <div class="changes-list">
+        ${changes.length ? changes.map(c => `
+          <div class="change-item">
+            <span class="change-pill ${pillClass(c.action)}">${pillLabel(c.action)}</span>
+            <span class="change-tag">${esc(c.full_tag)}</span>
+          </div>
+        `).join('') : '<p style="color:var(--text-muted);font-size:13px">No changes proposed.</p>'}
+      </div>
+    </div>
+    <div>
+      <div class="section-heading">Result</div>
+      <p style="font-size:13px;color:var(--text-muted)">${esc(String((data.updated_tags || []).length))} tags in updated taxonomy (was ${allTags.length}).</p>
+    </div>
+  `;
+
+  const ti = data.tokens_input  || 0;
+  const to = data.tokens_output || 0;
+  document.getElementById('tokenNote').textContent =
+    ti ? `${ti.toLocaleString()} in · ${to.toLocaleString()} out tokens` : '';
+
+  document.getElementById('aiModal').classList.remove('hidden');
+}
+
+document.getElementById('modalClose').addEventListener('click',  closeModal);
+document.getElementById('modalCancel').addEventListener('click', closeModal);
+document.getElementById('aiModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+function closeModal() {
+  document.getElementById('aiModal').classList.add('hidden');
+  pendingAiTags = null;
+}
+
+document.getElementById('modalAccept').addEventListener('click', () => {
+  if (!pendingAiTags) return;
+  allTags = pendingAiTags;
+  renderTable(allTags, (document._aiChangedTags || []));
+  setUnsaved(true);
+  closeModal();
+  toast('AI changes applied — review and save when ready.', 'success');
+});
+
+/* ════════════════════════════════════════════════════════
+   UNSAVED LEAVE WARNING
+   ════════════════════════════════════════════════════════ */
+window.addEventListener('beforeunload', e => {
+  if (hasUnsaved) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+/* ════════════════════════════════════════════════════════
+   DATA TAB
+   ════════════════════════════════════════════════════════ */
+document.getElementById('refreshDataBtn').addEventListener('click', () => {
+  dataPage = 1;
+  loadData();
+});
+
+async function loadData() {
+  const content = document.getElementById('dataContent');
+  renderDataSkeleton(content);
+
+  try {
+    const res = await fetch(`/api/data?page=${dataPage}&per_page=${DATA_PER_PAGE}`, {
+      headers: authHeaders(),
+    });
+    const data = await res.json();
+
+    if (!data.ok) {
+      if (data.error && data.error.includes('not configured')) {
+        content.innerHTML = `
+          <div class="data-notice">
+            <div class="data-notice-icon">🔧</div>
+            <h3>Zendesk Not Configured</h3>
+            <p>Add the following environment variables in Vercel to see classified ticket data:</p>
+            <br>
+            <p><code>ZENDESK_SUBDOMAIN</code> &nbsp; <code>ZENDESK_EMAIL</code> &nbsp; <code>ZENDESK_TOKEN</code></p>
+            <br>
+            <p>Optionally set <code>MINDED_TAG_FIELD_ID</code> to link the interaction tag custom field.</p>
+          </div>`;
+      } else {
+        content.innerHTML = `<div class="data-notice"><div class="data-notice-icon">⚠️</div><h3>Error</h3><p>${esc(data.error || 'Unknown error')}</p></div>`;
+      }
+      document.getElementById('dataCount').textContent = '';
+      return;
+    }
+
+    dataTotal = data.total || 0;
+    const results = data.results || [];
+    document.getElementById('dataCount').textContent =
+      `${dataTotal.toLocaleString()} total tickets`;
+
+    if (!results.length) {
+      content.innerHTML = `<div class="data-notice"><div class="data-notice-icon">📭</div><h3>No tickets found</h3><p>No classified tickets yet.</p></div>`;
+      return;
+    }
+
+    const statusPill = s => {
+      const cls = { open:'status-open', closed:'status-closed', solved:'status-solved', pending:'status-pending' }[s] || 'status-closed';
+      return `<span class="status-pill ${cls}">${esc(s)}</span>`;
+    };
+
+    const totalPages = Math.ceil(dataTotal / DATA_PER_PAGE);
+
+    content.innerHTML = `
+      <div class="table-wrap">
+        <div class="table-scroll">
+          <table>
+            <colgroup>
+              <col style="width:100px">
+              <col style="width:auto">
+              <col style="width:220px">
+              <col style="width:90px">
+              <col style="width:150px">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Ticket ID</th>
+                <th>Subject</th>
+                <th>Interaction Tag</th>
+                <th>Status</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${results.map(r => `
+                <tr>
+                  <td style="padding:10px 12px">
+                    <a href="${esc(r.url)}" target="_blank" rel="noopener" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500">#${esc(String(r.ticket_id))}</a>
+                  </td>
+                  <td style="padding:10px 12px">${esc(r.subject || '—')}</td>
+                  <td style="padding:10px 12px">
+                    ${r.interaction_tag
+                      ? `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--accent-subtle);color:var(--accent);padding:2px 7px;border-radius:4px">${esc(r.interaction_tag)}</span>`
+                      : `<span style="color:var(--text-muted);font-size:12px">—</span>`}
+                  </td>
+                  <td style="padding:10px 12px">${statusPill(r.status)}</td>
+                  <td style="padding:10px 12px;color:var(--text-muted);font-size:12px;font-variant-numeric:tabular-nums">${r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <span class="page-info">Page ${dataPage} of ${totalPages}</span>
+          <button class="btn btn-secondary btn-sm" id="prevPageBtn" ${dataPage <= 1 ? 'disabled' : ''}>← Prev</button>
+          <button class="btn btn-secondary btn-sm" id="nextPageBtn" ${dataPage >= totalPages ? 'disabled' : ''}>Next →</button>
+        </div>
+      </div>`;
+
+    document.getElementById('prevPageBtn')?.addEventListener('click', () => { dataPage--; loadData(); });
+    document.getElementById('nextPageBtn')?.addEventListener('click', () => { dataPage++; loadData(); });
+
+  } catch (err) {
+    content.innerHTML = `<div class="data-notice"><div class="data-notice-icon">⚠️</div><h3>Error</h3><p>${esc(err.message)}</p></div>`;
+    toast(`Data fetch failed: ${err.message}`, 'error');
+  }
+}
+
+function renderDataSkeleton(container) {
+  const rows = Array.from({ length: 8 }, () => `
+    <tr>
+      <td style="padding:12px"><div class="skeleton" style="width:60px"></div></td>
+      <td style="padding:12px"><div class="skeleton" style="width:${80 + Math.random()*120|0}px"></div></td>
+      <td style="padding:12px"><div class="skeleton" style="width:140px"></div></td>
+      <td style="padding:12px"><div class="skeleton" style="width:55px"></div></td>
+      <td style="padding:12px"><div class="skeleton" style="width:90px"></div></td>
+    </tr>`).join('');
+  container.innerHTML = `
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Ticket ID</th><th>Subject</th><th>Interaction Tag</th><th>Status</th><th>Created At</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+/* ════════════════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════════════════ */
+loadTaxonomy();
+</script>
