@@ -173,22 +173,20 @@ app.post('/zendesk/webhook', requireAuth, async (req, res) => {
       transcript, createdAt: created_at || ''
     });
 
-    // Return both the raw result and a ready-to-use Zendesk update payload
+    // Write the classified tag back to the Zendesk ticket automatically
+    let writeBack = null;
+    if (result.full_tag && process.env.ZENDESK_EMAIL && process.env.ZENDESK_TOKEN && process.env.ZENDESK_SUBDOMAIN) {
+      writeBack = await writeTagToZendesk(ticket_id, result.full_tag);
+    }
+
     res.json({
       ticket_id,
-      result,
-      zendesk_update: {
-        ticket: {
-          custom_fields: [
-            // Replace FIELD_ID with your actual Zendesk custom field ID
-            {
-              id:    process.env.MINDED_TAG_FIELD_ID || 'REPLACE_WITH_FIELD_ID',
-              value: result.full_tag
-            }
-          ],
-          tags: [result.l1, result.l2, result.l3].filter(Boolean)
-        }
-      }
+      classified_tag: result.full_tag,
+      l1: result.l1, l2: result.l2, l3: result.l3,
+      confidence: result.confidence,
+      taxonomy_gap: result.taxonomy_gap,
+      write_back: writeBack,
+      result
     });
   } catch (err) {
     console.error('/zendesk/webhook error:', err.message);
@@ -215,6 +213,45 @@ async function fetchZendeskTranscript(ticketId) {
     .slice(0, 30)
     .map(c => `[${c.public ? 'PUBLIC' : 'INTERNAL'} | ${c.created_at} | author ${c.author_id}]\n${c.plain_body || c.body || ''}`)
     .join('\n\n---\n\n');
+}
+
+// ── Zendesk tag write-back ────────────────────────────────────────────────
+
+async function writeTagToZendesk(ticketId, fullTag) {
+  const subdomain  = process.env.ZENDESK_SUBDOMAIN;
+  const email      = process.env.ZENDESK_EMAIL;
+  const token      = process.env.ZENDESK_TOKEN;
+  const fieldId    = process.env.MINDED_TAG_FIELD_ID;
+  const cred       = Buffer.from(`${email}/token:${token}`).toString('base64');
+
+  if (!fieldId) {
+    return { ok: false, error: 'MINDED_TAG_FIELD_ID env var not set' };
+  }
+
+  const body = {
+    ticket: {
+      custom_fields: [{ id: Number(fieldId), value: fullTag }]
+    }
+  };
+
+  const res = await fetch(
+    `https://${subdomain}.zendesk.com/api/v2/tickets/${ticketId}.json`,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: `Basic ${cred}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    return { ok: false, status: res.status, error: text.slice(0, 300) };
+  }
+
+  return { ok: true, ticket_id: ticketId, field_id: fieldId, value: fullTag };
 }
 
 // ── start ──────────────────────────────────────────────────────────────────
