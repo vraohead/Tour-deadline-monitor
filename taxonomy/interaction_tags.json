@@ -1,7 +1,7 @@
 {
   "version": "2026-08-22",
   "description": "Headout interaction tag taxonomy (NEW). L1::L2::L3 hierarchy for classifying Zendesk support tickets. Use full_tag when writing to Zendesk custom fields.",
-  "total_tags": 145,
+  "total_tags": 133,
   "l1_categories": [
     "amended_booking_response",
     "booking_failure",
@@ -1478,138 +1478,6 @@
       "definition": "Customer was dissatisfied with the experience received.",
       "minded_equivalent_tag": "",
       "easy_tag_category": "refund_related__unsatisfactory_experience"
-    },
-    {
-      "full_tag": "cancellation_request::customer_related::other",
-      "l1": "cancellation_request",
-      "l2": "customer_related",
-      "l3": "other",
-      "intent": "Customer wants to cancel for a personal reason not covered by other sub-categories.",
-      "trip_stage": "Any",
-      "definition": "Customer wants to cancel for a personal reason not covered by other sub-categories.",
-      "minded_equivalent_tag": "",
-      "easy_tag_category": "cancellation_request__customer_related__other"
-    },
-    {
-      "full_tag": "cancellation_request::sp_related::other",
-      "l1": "cancellation_request",
-      "l2": "sp_related",
-      "l3": "other",
-      "intent": "Customer wants to cancel due to a service-provider issue not covered by other sub-categories.",
-      "trip_stage": "Any",
-      "definition": "Customer wants to cancel due to a service-provider issue not covered by other sub-categories.",
-      "minded_equivalent_tag": "",
-      "easy_tag_category": "cancellation_request__sp_related__other"
-    },
-    {
-      "full_tag": "delay_fulfilment::ticket_related_issues::other",
-      "l1": "delay_fulfilment",
-      "l2": "ticket_related_issues",
-      "l3": "other",
-      "intent": "Ticket fulfilment is delayed due to a ticket-specific issue not covered by other sub-categories.",
-      "trip_stage": "Any",
-      "definition": "Ticket fulfilment is delayed due to a ticket-specific issue not covered by other sub-categories.",
-      "minded_equivalent_tag": "",
-      "easy_tag_category": "delay_fulfilment__ticket_related_issues__other"
-    },
-    {
-      "full_tag": "general_information::experience_related::other",
-      "l1": "general_information",
-      "l2": "experience_related",
-      "l3": "other",
-      "intent": "Customer has a question about an experience that does not fit other sub-categories.",
-      "trip_stage": "Any",
-      "definition": "Customer has a question about an experience that does not fit other sub-categories.",
-      "minded_equivalent_tag": "",
-      "easy_tag_category": "general_information__experience_related__other"
-    },
-    {
-      "full_tag": "general_information::pricing_related::other",
-      "l1": "general_information",
-      "l2": "pricing_related",
-      "l3": "other",
-      "intent": "Customer has a pricing-related question not covered by other sub-categories.",
-      "trip_stage": "Any",
-      "definition": "Customer has a pricing-related question not covered by other sub-categories.",
-      "minded_equivalent_tag": "",
-      "easy_tag_category": "general_information__pricing_related__other"
-    },
-    {
-      "full_tag": "modification_request::customer_related::other",
-      "l1": "modification_request",
-      "l2": "customer_related",
-      "l3": "other",
-      "intent": "Customer wants to modify their booking for a personal reason not covered by other sub-categories.",
-      "trip_stage": "Any",
-      "definition": "Customer wants to modify their booking for a personal reason not covered by other sub-categories.",
-      "minded_equivalent_tag": "",
-      "easy_tag_category": "modification_request__customer_related__other"
-    },
-    {
-      "full_tag": "modification_request::headout_related::other",
-      "l1": "modification_request",
-      "l2": "headout_related",
-      "l3": "other",
-      "intent": "Customer wants a modification due to a Headout error not covered by other sub-categories.",
-      "trip_stage": "Any",
-      "definition": "Customer wants a modification due to a Headout error not covered by other sub-categories.",
-      "minded_equivalent_tag": "",
-      "easy_tag_category": "modification_request__headout_related__other"
-    },
-    {
-      "full_tag": "modification_request::sp_related::other",
-      "l1": "modification_request",
-      "l2": "sp_related",
-      "l3": "other",
-      "intent": "Customer wants a modification due to a service-provider issue not covered by other sub-categories.",
-      "trip_stage": "Any",
-      "definition": "Customer wants a modification due to a service-provider issue not covered by other sub-categories.",
-      "minded_equivalent_tag": "",
-      "easy_tag_category": "modification_request__sp_related__other"
-    },
-    {
-      "full_tag": "service_issues::experience_related::other",
-      "l1": "service_issues",
-      "l2": "experience_related",
-      "l3": "other",
-      "intent": "Customer had an unsatisfactory experience for a reason not covered by other sub-categories.",
-      "trip_stage": "Any",
-      "definition": "Customer had an unsatisfactory experience for a reason not covered by other sub-categories.",
-      "minded_equivalent_tag": "",
-      "easy_tag_category": "service_issues__experience_related__other"
-    },
-    {
-      "full_tag": "service_issues::sp_related::other",
-      "l1": "service_issues",
-      "l2": "sp_related",
-      "l3": "other",
-      "intent": "Customer reports a service-provider issue not covered by other sub-categories.",
-      "trip_stage": "Any",
-      "definition": "Customer reports a service-provider issue not covered by other sub-categories.",
-      "minded_equivalent_tag": "",
-      "easy_tag_category": "service_issues__sp_related__other"
-    },
-    {
-      "full_tag": "ticket_redemption_details::audio_guide_related::other",
-      "l1": "ticket_redemption_details",
-      "l2": "audio_guide_related",
-      "l3": "other",
-      "intent": "Customer has an audio guide issue not covered by other sub-categories.",
-      "trip_stage": "Any",
-      "definition": "Customer has an audio guide issue not covered by other sub-categories.",
-      "minded_equivalent_tag": "",
-      "easy_tag_category": "ticket_redemption_details__audio_guide_related__other"
-    },
-    {
-      "full_tag": "ticket_redemption_details::meeting_point_related::other",
-      "l1": "ticket_redemption_details",
-      "l2": "meeting_point_related",
-      "l3": "other",
-      "intent": "Customer has a meeting-point query not covered by other sub-categories.",
-      "trip_stage": "Any",
-      "definition": "Customer has a meeting-point query not covered by other sub-categories.",
-      "minded_equivalent_tag": "",
-      "easy_tag_category": "ticket_redemption_details__meeting_point_related__other"
     }
   ]
 }
