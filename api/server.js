@@ -25,14 +25,16 @@
 
 require('dotenv').config();
 
+const path    = require('path');
 const express = require('express');
-const { loadTaxonomy, getTags, findTag } = require('./taxonomy');
+const { loadTaxonomy, getTags, findTag, taxonomyPromptText, saveTaxonomyViaGithub } = require('./taxonomy');
 const { classifyTicket } = require('./classifier');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '2mb' }));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ── auth middleware ────────────────────────────────────────────────────────
 
@@ -186,13 +188,135 @@ app.post('/zendesk/webhook', requireAuth, async (req, res) => {
               value: result.full_tag
             }
           ],
-          tags: [result.l1, result.l2, result.l3].filter(Boolean)
+          additional_tags: [result.full_tag?.replace(/::/g, '__')].filter(Boolean)
         }
       }
     });
   } catch (err) {
     console.error('/zendesk/webhook error:', err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PUT /taxonomy
+ * Body: { tags: TagObject[] }
+ * Saves the updated taxonomy to GitHub and invalidates the in-memory cache.
+ * Requires GITHUB_TOKEN env var.
+ */
+app.put('/taxonomy', async (req, res) => {
+  try {
+    const { tags } = req.body;
+    if (!Array.isArray(tags)) return res.status(400).json({ error: 'tags must be an array' });
+    const result = await saveTaxonomyViaGithub(tags);
+    res.json(result);
+  } catch (err) {
+    console.error('PUT /taxonomy error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /taxonomy/ai-edit
+ * Body: { prompt: string }
+ * Sends the current taxonomy + prompt to OpenAI and returns proposed changes.
+ * Does NOT save — the client must call PUT /taxonomy to persist.
+ */
+app.post('/taxonomy/ai-edit', async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    if (!prompt) return res.status(400).json({ error: 'prompt is required' });
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'OPENAI_API_KEY not configured' });
+
+    const currentTags = getTags();
+    const tagList = taxonomyPromptText();
+    const model = process.env.OPENAI_MODEL || 'gpt-4.1-nano';
+
+    const systemMsg = `You are a taxonomy editor for Headout's Zendesk support tag system.
+The taxonomy uses an L1::L2::L3 hierarchy. Each tag has: full_tag, l1, l2, l3, intent, trip_stage, definition, easy_tag_category, minded_equivalent_tag.
+easy_tag_category is l1__l2__l3 (double underscores). trip_stage must be one of: Any, Pre-trip, During trip, Post-trip.
+Only make changes explicitly asked for. Return valid JSON.`;
+
+    const userMsg = `Current taxonomy (${currentTags.length} tags):\n${tagList}\n\nRequested change: ${prompt}\n\nReturn JSON: { "explanation": "...", "changes": [{"action":"add"|"modify"|"remove","full_tag":"..."}], "updated_tags": [...full tag array after changes...] }`;
+
+    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        response_format: { type: 'json_object' },
+        messages: [{ role: 'system', content: systemMsg }, { role: 'user', content: userMsg }],
+      }),
+    });
+    if (!openaiRes.ok) {
+      const err = await openaiRes.text();
+      throw new Error(`OpenAI error (${openaiRes.status}): ${err.slice(0, 300)}`);
+    }
+    const aiData = await openaiRes.json();
+    const parsed = JSON.parse(aiData.choices[0].message.content);
+    res.json({
+      explanation:  parsed.explanation  || '',
+      changes:      parsed.changes      || [],
+      updated_tags: parsed.updated_tags || currentTags,
+      tokens_input:  aiData.usage?.prompt_tokens     || 0,
+      tokens_output: aiData.usage?.completion_tokens || 0,
+    });
+  } catch (err) {
+    console.error('POST /taxonomy/ai-edit error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/data
+ * Query params: ?page=1&per_page=20
+ * Returns classified tickets from Zendesk (tickets with the interaction tag custom field set).
+ * Requires ZENDESK_SUBDOMAIN, ZENDESK_EMAIL, ZENDESK_TOKEN env vars.
+ */
+app.get('/api/data', async (req, res) => {
+  const subdomain = process.env.ZENDESK_SUBDOMAIN;
+  const email     = process.env.ZENDESK_EMAIL;
+  const token     = process.env.ZENDESK_TOKEN;
+  const fieldId   = process.env.MINDED_TAG_FIELD_ID;
+
+  if (!subdomain || !email || !token) {
+    return res.json({ ok: false, error: 'Zendesk credentials not configured' });
+  }
+
+  const page    = Math.max(1, parseInt(req.query.page  || '1',  10));
+  const perPage = Math.min(100, parseInt(req.query.per_page || '20', 10));
+  const cred    = Buffer.from(`${email}/token:${token}`).toString('base64');
+  const headers = { Authorization: `Basic ${cred}`, 'Content-Type': 'application/json' };
+
+  try {
+    const query = fieldId
+      ? `custom_field_${fieldId}:*`
+      : `tags:interaction_tag`;
+    const url = `https://${subdomain}.zendesk.com/api/v2/search.json?query=${encodeURIComponent(query)}&sort_by=created_at&sort_order=desc&page=${page}&per_page=${perPage}`;
+    const zdRes = await fetch(url, { headers });
+    if (!zdRes.ok) throw new Error(`Zendesk search failed: ${zdRes.status}`);
+    const zdData = await zdRes.json();
+
+    const results = (zdData.results || []).map(t => {
+      const tagField = fieldId
+        ? (t.custom_fields || []).find(f => String(f.id) === String(fieldId))
+        : null;
+      return {
+        ticket_id:       t.id,
+        subject:         t.subject,
+        status:          t.status,
+        created_at:      t.created_at,
+        interaction_tag: tagField?.value || null,
+        url:             `https://${subdomain}.zendesk.com/agent/tickets/${t.id}`,
+      };
+    });
+
+    res.json({ ok: true, total: zdData.count || 0, page, per_page: perPage, results });
+  } catch (err) {
+    console.error('GET /api/data error:', err.message);
+    res.json({ ok: false, error: err.message });
   }
 });
 
