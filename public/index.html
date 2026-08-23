@@ -346,12 +346,19 @@ td:first-child .cell-content { font-family: 'JetBrains Mono', monospace; font-si
   <!-- ── Edit Log tab ── -->
   <div class="tab-panel" id="panel-log">
     <div class="log-toolbar">
-      <span class="filter-label">Show:</span>
-      <div class="filter-pills">
-        <button class="filter-pill active" data-log-filter="all">All</button>
-        <button class="filter-pill" data-log-filter="pending">Pending</button>
-        <button class="filter-pill" data-log-filter="committed">Committed</button>
-      </div>
+      <span class="filter-label">Date:</span>
+      <select class="filter-select" id="logDateFilter">
+        <option value="all">All time</option>
+        <option value="today">Today</option>
+        <option value="week">Last 7 days</option>
+        <option value="month">Last 30 days</option>
+      </select>
+      <span class="filter-label" style="margin-left:6px">Action:</span>
+      <select class="filter-select" id="logActionFilter">
+        <option value="all">All actions</option>
+        <option value="add">Add</option>
+        <option value="modify">Edit</option>
+      </select>
       <div class="toolbar-spacer"></div>
       <span class="tag-count" id="logCount"></span>
       <button class="btn btn-secondary btn-sm" id="clearLogBtn">Clear Log</button>
@@ -513,53 +520,54 @@ function buildTableStructure() {
 let allTags = [], pendingAiTags = null, pendingAiChanges = [];
 let dataPage = 1, dataTotal = 0;
 const DATA_PER_PAGE = 20;
-let hasUnsaved = false, activeL1 = '', activeL2 = '', activeL3 = '', logFilter = 'all';
+let hasUnsaved = false, activeL1 = '', activeL2 = '', activeL3 = '';
+let logDateFilter = 'all', logActionFilter = 'all';
 const EDIT_LOG_KEY = 'it_edit_log_v1';
 
 /* ═══ EDIT LOG ═══ */
 function getEditLog() { try { return JSON.parse(localStorage.getItem(EDIT_LOG_KEY)||'[]'); } catch { return []; } }
 function saveEditLog(log) { try { localStorage.setItem(EDIT_LOG_KEY, JSON.stringify(log.slice(0,1000))); } catch {} }
-function pushLogEntry(entry) {
+
+function pushLogEntries(entries, version) {
   const log = getEditLog();
-  log.unshift({ ...entry, id: Math.random().toString(36).slice(2), ts: Date.now(), saved: false });
+  const ts = Date.now();
+  entries.forEach((e, i) => {
+    log.unshift({ ...e, id: Math.random().toString(36).slice(2), ts: ts - i, version });
+  });
   saveEditLog(log); renderLog();
 }
-function markLogSaved(version) {
-  const log = getEditLog();
-  log.forEach(e => { if (!e.saved) { e.saved = true; e.version = version; } });
-  saveEditLog(log); renderLog();
-}
+
 function renderLog() {
   const log = getEditLog();
-  const filtered = log.filter(e =>
-    logFilter === 'pending' ? !e.saved : logFilter === 'committed' ? e.saved : true
-  );
-  document.getElementById('logCount').textContent = `${filtered.length} entries`;
+  const now = Date.now();
+  const cutoffs = { today: 86400000, week: 7*86400000, month: 30*86400000 };
+  const filtered = log.filter(e => {
+    if (logDateFilter !== 'all' && (now - e.ts) > cutoffs[logDateFilter]) return false;
+    if (logActionFilter !== 'all' && e.action !== logActionFilter) return false;
+    return true;
+  });
+  document.getElementById('logCount').textContent = `${filtered.length} of ${log.length} entries`;
   const content = document.getElementById('logContent');
   if (!filtered.length) {
-    const msgs = { pending:'No pending edits.', committed:'No committed edits yet.', all:'No edits recorded yet.' };
-    content.innerHTML = `<div class="log-empty">${msgs[logFilter]}</div>`; return;
+    content.innerHTML = `<div class="log-empty">${log.length ? 'No entries match the current filters.' : 'No confirmed saves recorded yet.'}</div>`; return;
   }
   content.innerHTML = filtered.map(e => {
     const t = new Date(e.ts);
     const dateStr = t.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
     const timeStr = t.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-    const pillCls = { modify:'log-pill-modify', add:'log-pill-add', delete:'log-pill-delete' }[e.action]||'log-pill-modify';
-    const pillTxt = { modify:'Edit', add:'Add', delete:'Delete' }[e.action]||e.action;
+    const pillCls = { modify:'log-pill-modify', add:'log-pill-add' }[e.action]||'log-pill-modify';
+    const pillTxt = { modify:'Edit', add:'Add' }[e.action]||e.action;
     let detail = '';
-    if (e.action==='modify' && e.field)
-      detail = `<span class="log-field">${esc(e.field)}</span>: <span class="log-old">${esc(e.old_value||'(empty)')}</span> → <span class="log-new">${esc(e.new_value||'(empty)')}</span>`;
-    else if (e.action==='add')  detail = `<span style="color:var(--green)">New tag added</span>`;
-    else if (e.action==='delete') detail = `<span style="color:var(--red)">Tag deleted</span>`;
-    else if (e.detail) detail = esc(e.detail);
-    const stCls = e.saved ? 'log-status-committed' : 'log-status-pending';
-    const stTxt = e.saved ? (e.version ? `Committed ${e.version}` : 'Committed') : 'Pending';
+    if (e.action==='modify')
+      detail = `<span style="color:var(--text-muted);font-size:11px">tag modified</span>`;
+    else if (e.action==='add')
+      detail = `<span style="color:var(--green)">New tag added</span>`;
     return `<div class="log-entry">
       <span class="log-time">${dateStr} ${timeStr}</span>
       <span class="log-action-pill ${pillCls}">${pillTxt}</span>
       <span class="log-tag">${esc(e.full_tag||'—')}</span>
       <span class="log-detail">${detail}</span>
-      <span class="log-status ${stCls}">${esc(stTxt)}</span>
+      <span class="log-status log-status-committed">${esc(e.version ? `v${e.version}` : 'Saved')}</span>
     </div>`;
   }).join('');
 }
@@ -591,13 +599,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
-/* ═══ LOG FILTER ═══ */
-document.querySelectorAll('[data-log-filter]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-log-filter]').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active'); logFilter = btn.dataset.logFilter; renderLog();
-  });
-});
+/* ═══ LOG FILTERS ═══ */
+document.getElementById('logDateFilter').addEventListener('change', function() { logDateFilter = this.value; renderLog(); });
+document.getElementById('logActionFilter').addEventListener('change', function() { logActionFilter = this.value; renderLog(); });
 document.getElementById('clearLogBtn').addEventListener('click', () => {
   if (confirm('Clear all edit log entries?')) { localStorage.removeItem(EDIT_LOG_KEY); renderLog(); }
 });
@@ -730,7 +734,6 @@ tbl.addEventListener('focusout', e => {
       const ft = orig.full_tag || row.querySelector('[data-col="full_tag"]')?.textContent.trim() || '(new)';
       if (!row.classList.contains('row-added')) row.classList.add('row-modified');
       setUnsaved(true);
-      pushLogEntry({ action:'modify', full_tag:ft, field:e.target.dataset.col, old_value:oldVal, new_value:newVal });
     }
   }
 });
@@ -786,13 +789,22 @@ document.getElementById('addModalSubmit').addEventListener('click', () => {
   buildFilters(allTags);
   renderTable(allTags);
   setUnsaved(true);
-  pushLogEntry({ action: 'add', full_tag: full, detail: `Added via form` });
   toast(`Tag "${full}" added — save when ready.`, 'success');
   closeAddModal();
 });
 
 /* ═══ SAVE ═══ */
 document.getElementById('saveBtn').addEventListener('click', async () => {
+  // Snapshot which rows are new/modified before collecting
+  const changedEntries = [];
+  document.querySelectorAll('#taxonomyBody tr[data-original]').forEach(row => {
+    const isNew = row.classList.contains('row-added');
+    const isMod = row.classList.contains('row-modified');
+    if (!isNew && !isMod) return;
+    const ft = row.querySelector('[data-col="full_tag"]')?.textContent.trim() || '—';
+    changedEntries.push({ action: isNew ? 'add' : 'modify', full_tag: ft });
+  });
+
   const tags = collectTags();
   const btn = document.getElementById('saveBtn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
@@ -805,11 +817,10 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     allTags = tags.map(t => ({ ...t, _modified: false, _new: false, _deleted: false }));
-    // Refresh L1 datalist
     const dl = document.getElementById('l1DataList');
     dl.innerHTML = [...new Set(allTags.map(t=>t.l1))].sort().map(l=>`<option value="${esc(l)}">`).join('');
     buildFilters(allTags); renderTable(allTags); setUnsaved(false);
-    markLogSaved(data.version);
+    if (changedEntries.length) pushLogEntries(changedEntries, data.version);
     toast(`Saved ${data.total_tags} tags (v${data.version}) — Vercel redeploying`, 'success');
   } catch (err) {
     toast(`Save failed: ${err.message}`, 'error');
@@ -869,10 +880,6 @@ function closeAiModal() { document.getElementById('aiModal').classList.add('hidd
 
 document.getElementById('modalAccept').addEventListener('click', () => {
   if (!pendingAiTags) return;
-  const prompt = document.getElementById('aiPromptInput').value.trim();
-  pendingAiChanges.forEach(c => pushLogEntry({
-    action: c.action==='remove' ? 'delete' : c.action, full_tag: c.full_tag, detail:`AI: "${prompt}"`
-  }));
   allTags = pendingAiTags;
   buildFilters(allTags); renderTable(allTags); setUnsaved(true);
   closeAiModal(); toast('AI changes applied — review and save when ready.', 'success');
