@@ -143,8 +143,8 @@ td:first-child .cell-content { font-family: 'JetBrains Mono', monospace; font-si
 .row-added    { background: var(--green-bg)  !important; }
 .row-deleted  { background: var(--red-bg)    !important; opacity: .6; pointer-events: none; }
 .row-deleted .cell-content { text-decoration: line-through; }
-.delete-btn { padding: 3px 6px; border-radius: 3px; background: transparent; color: var(--text-muted); font-size: 14px; line-height: 1; }
-.delete-btn:hover { background: var(--red-bg); color: var(--red); }
+.filter-select { padding: 6px 28px 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: 12px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; cursor: pointer; transition: border-color .15s; max-width: 160px; }
+.filter-select:focus { border-color: var(--accent); outline: none; }
 
 /* ── forms (add tag modal) ── */
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -284,10 +284,15 @@ td:first-child .cell-content { font-family: 'JetBrains Mono', monospace; font-si
         </svg>
         <input class="search-input" id="searchInput" type="search" placeholder="Search tags, definitions…">
       </div>
-      <span class="filter-label">L1:</span>
-      <div class="filter-pills" id="l1Pills">
-        <button class="filter-pill active" data-l1="">All</button>
-      </div>
+      <select class="filter-select" id="filterL1" title="Filter by L1">
+        <option value="">All L1</option>
+      </select>
+      <select class="filter-select" id="filterL2" title="Filter by L2">
+        <option value="">All L2</option>
+      </select>
+      <select class="filter-select" id="filterL3" title="Filter by L3">
+        <option value="">All L3</option>
+      </select>
       <span class="unsaved-badge" id="unsavedBadge"><span>●</span> Unsaved changes</span>
       <div class="toolbar-spacer"></div>
       <span class="tag-count" id="tagCount"></span>
@@ -498,19 +503,17 @@ function buildColPickerMenu() {
 }
 
 function buildTableStructure() {
-  // colgroup
   const cg = document.getElementById('tableColgroup');
-  cg.innerHTML = COLS_DEF.map(c => `<col style="width:${c.width};min-width:80px">`).join('') + '<col style="width:44px">';
-  // thead
+  cg.innerHTML = COLS_DEF.map(c => `<col style="width:${c.width};min-width:80px">`).join('');
   const tr = document.getElementById('tableHead');
-  tr.innerHTML = COLS_DEF.map(c => `<th>${c.label}</th>`).join('') + '<th></th>';
+  tr.innerHTML = COLS_DEF.map(c => `<th>${c.label}</th>`).join('');
 }
 
 /* ═══ STATE ═══ */
 let allTags = [], pendingAiTags = null, pendingAiChanges = [];
 let dataPage = 1, dataTotal = 0;
 const DATA_PER_PAGE = 20;
-let hasUnsaved = false, activeL1 = '', logFilter = 'all';
+let hasUnsaved = false, activeL1 = '', activeL2 = '', activeL3 = '', logFilter = 'all';
 const EDIT_LOG_KEY = 'it_edit_log_v1';
 
 /* ═══ EDIT LOG ═══ */
@@ -605,20 +608,51 @@ const colPickerMenu = document.getElementById('colPickerMenu');
 colPickerBtn.addEventListener('click', e => { e.stopPropagation(); colPickerMenu.classList.toggle('hidden'); });
 document.addEventListener('click', e => { if (!document.getElementById('colPickerWrap').contains(e.target)) colPickerMenu.classList.add('hidden'); });
 
-/* ═══ L1 PILLS ═══ */
-function buildL1Pills(tags) {
-  const l1s = [...new Set(tags.map(t=>t.l1))].sort();
-  const container = document.getElementById('l1Pills');
-  container.innerHTML = `<button class="filter-pill ${activeL1===''?'active':''}" data-l1="">All</button>` +
-    l1s.map(l=>`<button class="filter-pill ${l===activeL1?'active':''}" data-l1="${esc(l)}">${esc(l.replace(/_/g,' '))}</button>`).join('');
-  container.querySelectorAll('.filter-pill').forEach(btn => {
-    btn.addEventListener('click', () => {
-      activeL1 = btn.dataset.l1;
-      container.querySelectorAll('.filter-pill').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active'); renderTable(allTags);
-    });
-  });
+/* ═══ CASCADING FILTERS ═══ */
+function buildFilters(tags) {
+  const l1s = [...new Set(tags.map(t=>t.l1).filter(Boolean))].sort();
+  const sel1 = document.getElementById('filterL1');
+  sel1.innerHTML = `<option value="">All L1</option>` +
+    l1s.map(v=>`<option value="${esc(v)}"${v===activeL1?' selected':''}>${esc(v.replace(/_/g,' '))}</option>`).join('');
+
+  rebuildL2(tags);
 }
+
+function rebuildL2(tags) {
+  const src = activeL1 ? tags.filter(t=>t.l1===activeL1) : tags;
+  const l2s = [...new Set(src.map(t=>t.l2).filter(Boolean))].sort();
+  const sel2 = document.getElementById('filterL2');
+  const prev2 = activeL2;
+  sel2.innerHTML = `<option value="">All L2</option>` +
+    l2s.map(v=>`<option value="${esc(v)}"${v===prev2?' selected':''}>${esc(v.replace(/_/g,' '))}</option>`).join('');
+  if (!l2s.includes(activeL2)) { activeL2 = ''; sel2.value = ''; }
+
+  rebuildL3(tags);
+}
+
+function rebuildL3(tags) {
+  const src = tags.filter(t=>
+    (!activeL1 || t.l1===activeL1) && (!activeL2 || t.l2===activeL2)
+  );
+  const l3s = [...new Set(src.map(t=>t.l3).filter(Boolean))].sort();
+  const sel3 = document.getElementById('filterL3');
+  const prev3 = activeL3;
+  sel3.innerHTML = `<option value="">All L3</option>` +
+    l3s.map(v=>`<option value="${esc(v)}"${v===prev3?' selected':''}>${esc(v.replace(/_/g,' '))}</option>`).join('');
+  if (!l3s.includes(activeL3)) { activeL3 = ''; sel3.value = ''; }
+}
+
+document.getElementById('filterL1').addEventListener('change', function() {
+  activeL1 = this.value; activeL2 = ''; activeL3 = '';
+  rebuildL2(allTags); renderTable(allTags);
+});
+document.getElementById('filterL2').addEventListener('change', function() {
+  activeL2 = this.value; activeL3 = '';
+  rebuildL3(allTags); renderTable(allTags);
+});
+document.getElementById('filterL3').addEventListener('change', function() {
+  activeL3 = this.value; renderTable(allTags);
+});
 
 /* ═══ TABLE RENDER ═══ */
 function renderTable(tags) {
@@ -627,6 +661,8 @@ function renderTable(tags) {
   const keys   = COLS_DEF.map(c=>c.key);
   const visible = tags.filter(t => {
     if (activeL1 && t.l1 !== activeL1) return false;
+    if (activeL2 && t.l2 !== activeL2) return false;
+    if (activeL3 && t.l3 !== activeL3) return false;
     if (search) return keys.some(k=>String(t[k]||'').toLowerCase().includes(search));
     return true;
   });
@@ -641,11 +677,8 @@ function renderTable(tags) {
     const cls   = isNew ? 'row-added' : isDel ? 'row-deleted' : isMod ? 'row-modified' : '';
     return `<tr class="${cls}" data-original='${esc(orig)}'>
       ${COLS_DEF.map(col =>
-        `<td${col.mono ? ' class="cell-mono"' : ''}><span class="cell-content" contenteditable="${isDel?'false':'true'}" data-col="${col.key}">${esc(tag[col.key]||'')}</span></td>`
+        `<td${col.mono ? ' class="cell-mono"' : ''}><span class="cell-content" contenteditable="true" data-col="${col.key}">${esc(tag[col.key]||'')}</span></td>`
       ).join('')}
-      <td style="text-align:center;vertical-align:middle;padding:4px">
-        <button class="delete-btn" title="Delete">×</button>
-      </td>
     </tr>`;
   }).join('');
 }
@@ -669,10 +702,9 @@ async function loadTaxonomy() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     allTags = data.tags || [];
-    // Fill L1 datalist for Add Tag form
     const dl = document.getElementById('l1DataList');
     dl.innerHTML = [...new Set(allTags.map(t=>t.l1))].sort().map(l=>`<option value="${esc(l)}">`).join('');
-    buildL1Pills(allTags);
+    buildFilters(allTags);
     renderTable(allTags);
     setUnsaved(false);
   } catch (err) {
@@ -684,18 +716,6 @@ async function loadTaxonomy() {
 
 /* ═══ TABLE EVENTS ═══ */
 const tbl = document.getElementById('taxonomyTable');
-
-tbl.addEventListener('click', e => {
-  if (e.target.classList.contains('delete-btn')) {
-    const row = e.target.closest('tr'); if (!row) return;
-    const orig = JSON.parse(row.dataset.original||'{}');
-    if (!row.classList.contains('row-added')) {
-      row.classList.add('row-deleted');
-      pushLogEntry({ action:'delete', full_tag: orig.full_tag||'' });
-    } else { row.remove(); }
-    setUnsaved(true);
-  }
-});
 
 tbl.addEventListener('focusin', e => {
   if (e.target.classList.contains('cell-content')) e.target.dataset.valBefore = e.target.textContent.trim();
@@ -763,7 +783,7 @@ document.getElementById('addModalSubmit').addEventListener('click', () => {
 
   const newTag = { full_tag: full, l1, l2, l3, intent, trip_stage: tripStage, definition, easy_tag_category: easy, minded_equivalent_tag: '', _new: true };
   allTags = [newTag, ...allTags];
-  buildL1Pills(allTags);
+  buildFilters(allTags);
   renderTable(allTags);
   setUnsaved(true);
   pushLogEntry({ action: 'add', full_tag: full, detail: `Added via form` });
@@ -788,7 +808,7 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     // Refresh L1 datalist
     const dl = document.getElementById('l1DataList');
     dl.innerHTML = [...new Set(allTags.map(t=>t.l1))].sort().map(l=>`<option value="${esc(l)}">`).join('');
-    buildL1Pills(allTags); renderTable(allTags); setUnsaved(false);
+    buildFilters(allTags); renderTable(allTags); setUnsaved(false);
     markLogSaved(data.version);
     toast(`Saved ${data.total_tags} tags (v${data.version}) — Vercel redeploying`, 'success');
   } catch (err) {
@@ -854,7 +874,7 @@ document.getElementById('modalAccept').addEventListener('click', () => {
     action: c.action==='remove' ? 'delete' : c.action, full_tag: c.full_tag, detail:`AI: "${prompt}"`
   }));
   allTags = pendingAiTags;
-  buildL1Pills(allTags); renderTable(allTags); setUnsaved(true);
+  buildFilters(allTags); renderTable(allTags); setUnsaved(true);
   closeAiModal(); toast('AI changes applied — review and save when ready.', 'success');
 });
 
