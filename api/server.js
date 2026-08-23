@@ -91,6 +91,87 @@ app.get('/taxonomy/:l1', (req, res) => {
   res.json({ l1, count: tags.length, tags });
 });
 
+// ── AI Agent Tag API ────────────────────────────────────────────────────────
+//
+// Designed to be called by any AI agent that needs the interaction tag list.
+// No authentication required — these are read-only public endpoints.
+//
+// GET /tags                  → JSON array of all tags (full schema)
+// GET /tags?format=names     → just the full_tag strings
+// GET /tags?format=prompt    → numbered plain-text list for LLM system prompts
+// GET /tags?l1=<category>    → filter by L1 category (combinable with format)
+// GET /tags/:full_tag        → single tag by its full_tag slug
+//
+// Recommended system prompt injection:
+//   const res = await fetch('https://<your-app>.vercel.app/tags?format=prompt');
+//   const tagList = await res.text();
+//   // Then prepend tagList to your classification prompt.
+
+/**
+ * GET /tags
+ */
+app.get('/tags', (req, res) => {
+  const tax  = loadTaxonomy();
+  let   tags = getTags();
+  const fmt  = (req.query.format || 'json').toLowerCase();
+  const l1f  = (req.query.l1 || '').toLowerCase();
+
+  if (l1f) tags = tags.filter(t => t.l1.toLowerCase() === l1f);
+
+  if (fmt === 'names') {
+    return res.json({
+      version:    tax.version,
+      total:      tags.length,
+      full_tags:  tags.map(t => t.full_tag),
+    });
+  }
+
+  if (fmt === 'prompt') {
+    const lines = tags.map((t, i) =>
+      `${i + 1}. ${t.full_tag}` +
+      ` | intent: ${t.intent}` +
+      ` | trip_stage: ${t.trip_stage}` +
+      ` | definition: ${t.definition || 'n/a'}`
+    ).join('\n');
+    return res.type('text/plain').send(
+      `Headout Interaction Tag Taxonomy v${tax.version} — ${tags.length} tags\n\n${lines}`
+    );
+  }
+
+  // Default: full JSON
+  res.json({
+    version:    tax.version,
+    total:      tags.length,
+    l1_categories: [...new Set(tags.map(t => t.l1))],
+    tags: tags.map(t => ({
+      full_tag:    t.full_tag,
+      l1:          t.l1,
+      l2:          t.l2,
+      l3:          t.l3 || null,
+      intent:      t.intent,
+      trip_stage:  t.trip_stage,
+      definition:  t.definition || null,
+      zendesk_tag: t.easy_tag_category || t.full_tag.replace(/::/g, '__'),
+    })),
+  });
+});
+
+/**
+ * GET /tags/:full_tag
+ * Lookup a single tag by its full_tag value (URL-encode :: as %3A%3A or use __ separator).
+ * Accepts both :: and __ as separators for convenience.
+ */
+app.get('/tags/:full_tag(*)', (req, res) => {
+  const raw       = req.params.full_tag.replace(/__/g, '::');
+  const normalized = decodeURIComponent(raw).trim().toLowerCase();
+  const tag = getTags().find(t => t.full_tag.toLowerCase() === normalized);
+  if (!tag) return res.status(404).json({ error: `Tag not found: ${req.params.full_tag}` });
+  res.json({
+    ...tag,
+    zendesk_tag: tag.easy_tag_category || tag.full_tag.replace(/::/g, '__'),
+  });
+});
+
 /**
  * POST /classify
  * Body: {
