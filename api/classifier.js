@@ -47,6 +47,7 @@ async function classifyTicket(ticket) {
 RULES
 - Choose exactly one existing NEW full tag as the best current classification.
 - existing_tag_full_tag must exactly equal one line's L1::L2::L3 value in the taxonomy list.
+- selection_reason: 1-2 sentences explaining why this specific tag was chosen, referencing the ticket content. No PII.
 - taxonomy_gap is true ONLY when no existing tag can represent the primary contact reason.
 - A mismatch with the legacy Minded tag alone is not a taxonomy gap.
 - Suggest at most one genuinely missing new tag (needed: false if none).
@@ -102,6 +103,7 @@ ${transcriptClean || '[none]'}`;
     l2:              matchedTag?.l2 || '',
     l3:              matchedTag?.l3 || '',
     confidence:      parsed.confidence,
+    selection_reason: parsed.selection_reason || '',
     recommended_action: parsed.recommended_action,
     mismatch_reason: parsed.mismatch_reason,
     evidence:        parsed.evidence_snippets || [],
@@ -141,13 +143,14 @@ function classificationSchema() {
     additionalProperties: false,
     required: [
       'existing_tag_full_tag','recommended_action','confidence',
-      'mismatch_reason','evidence_snippets','taxonomy_gap',
+      'selection_reason','mismatch_reason','evidence_snippets','taxonomy_gap',
       'taxonomy_gap_reason','suggested_new_tag'
     ],
     properties: {
       existing_tag_full_tag: { type: 'string' },
       recommended_action:    { type: 'string', enum: ['KEEP','RETAG','ADD_NEW_TAXONOMY','REVIEW'] },
       confidence:            { type: 'number' },
+      selection_reason:      { type: 'string' },
       mismatch_reason:       { type: 'string' },
       evidence_snippets:     { type: 'array', items: { type: 'string' } },
       taxonomy_gap:          { type: 'boolean' },

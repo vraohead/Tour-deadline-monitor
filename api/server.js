@@ -256,23 +256,24 @@ app.post('/zendesk/webhook', requireAuth, async (req, res) => {
       transcript, createdAt: created_at || ''
     });
 
-    // Return both the raw result and a ready-to-use Zendesk update payload
-    res.json({
-      ticket_id,
-      result,
-      zendesk_update: {
-        ticket: {
-          custom_fields: [
-            // Replace FIELD_ID with your actual Zendesk custom field ID
-            {
-              id:    process.env.MINDED_TAG_FIELD_ID || 'REPLACE_WITH_FIELD_ID',
-              value: result.full_tag
-            }
-          ],
-          additional_tags: [result.full_tag?.replace(/::/g, '__')].filter(Boolean)
-        }
+    const fieldId   = process.env.MINDED_TAG_FIELD_ID;
+    const zdUpdate  = {
+      ticket: {
+        custom_fields:   fieldId ? [{ id: Number(fieldId), value: result.full_tag }] : [],
+        additional_tags: [result.full_tag?.replace(/::/g, '__')].filter(Boolean),
       }
+    };
+
+    // Write tag back and post internal note in parallel (fire-and-forget errors)
+    const writeResults = await Promise.allSettled([
+      writeTagToZendesk(ticket_id, zdUpdate),
+      postInternalNote(ticket_id, result),
+    ]);
+    writeResults.forEach((r, i) => {
+      if (r.status === 'rejected') console.error(`Zendesk write ${i} failed:`, r.reason?.message);
     });
+
+    res.json({ ticket_id, result, zendesk_update: zdUpdate });
   } catch (err) {
     console.error('/zendesk/webhook error:', err.message);
     res.status(500).json({ error: err.message });
@@ -400,6 +401,48 @@ app.get('/api/data', async (req, res) => {
     res.json({ ok: false, error: err.message });
   }
 });
+
+// ── Zendesk helpers ────────────────────────────────────────────────────────
+
+function zdHeaders() {
+  const email = process.env.ZENDESK_EMAIL;
+  const token = process.env.ZENDESK_TOKEN;
+  const cred  = Buffer.from(`${email}/token:${token}`).toString('base64');
+  return { Authorization: `Basic ${cred}`, 'Content-Type': 'application/json' };
+}
+
+async function writeTagToZendesk(ticketId, updateBody) {
+  const subdomain = process.env.ZENDESK_SUBDOMAIN;
+  if (!subdomain || !process.env.ZENDESK_EMAIL || !process.env.ZENDESK_TOKEN) return;
+  const res = await fetch(
+    `https://${subdomain}.zendesk.com/api/v2/tickets/${ticketId}.json`,
+    { method: 'PUT', headers: zdHeaders(), body: JSON.stringify(updateBody) }
+  );
+  if (!res.ok) throw new Error(`Zendesk PUT ticket failed: ${res.status}`);
+}
+
+async function postInternalNote(ticketId, result) {
+  const subdomain = process.env.ZENDESK_SUBDOMAIN;
+  if (!subdomain || !process.env.ZENDESK_EMAIL || !process.env.ZENDESK_TOKEN) return;
+
+  const confidence = result.confidence != null ? ` (${Math.round(result.confidence * 100)}% confidence)` : '';
+  const reason     = result.selection_reason || 'No reason provided.';
+  const noteBody   = `🏷️ Interaction tag assigned: ${result.full_tag}${confidence}\n\n${reason}`;
+
+  const res = await fetch(
+    `https://${subdomain}.zendesk.com/api/v2/tickets/${ticketId}.json`,
+    {
+      method: 'PUT',
+      headers: zdHeaders(),
+      body: JSON.stringify({
+        ticket: {
+          comment: { body: noteBody, public: false }
+        }
+      })
+    }
+  );
+  if (!res.ok) throw new Error(`Zendesk internal note failed: ${res.status}`);
+}
 
 // ── Zendesk comment fetcher ────────────────────────────────────────────────
 
