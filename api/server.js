@@ -25,17 +25,16 @@
 
 require('dotenv').config();
 
+const path    = require('path');
 const express = require('express');
-const { loadTaxonomy, getTags, taxonomyPromptText, findTag, saveTaxonomyViaGithub } = require('./taxonomy');
+const { loadTaxonomy, getTags, findTag, taxonomyPromptText, saveTaxonomyViaGithub } = require('./taxonomy');
 const { classifyTicket } = require('./classifier');
-
-const MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-nano';
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '2mb' }));
-app.use(express.static(require('path').join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ── auth middleware ────────────────────────────────────────────────────────
 
@@ -176,20 +175,22 @@ app.post('/zendesk/webhook', requireAuth, async (req, res) => {
       transcript, createdAt: created_at || ''
     });
 
-    // Write the classified tag back to the Zendesk ticket automatically
-    let writeBack = null;
-    if (result.full_tag && process.env.ZENDESK_EMAIL && process.env.ZENDESK_TOKEN && process.env.ZENDESK_SUBDOMAIN) {
-      writeBack = await writeTagToZendesk(ticket_id, result.full_tag);
-    }
-
+    // Return both the raw result and a ready-to-use Zendesk update payload
     res.json({
       ticket_id,
-      classified_tag: result.full_tag,
-      l1: result.l1, l2: result.l2, l3: result.l3,
-      confidence: result.confidence,
-      taxonomy_gap: result.taxonomy_gap,
-      write_back: writeBack,
-      result
+      result,
+      zendesk_update: {
+        ticket: {
+          custom_fields: [
+            // Replace FIELD_ID with your actual Zendesk custom field ID
+            {
+              id:    process.env.MINDED_TAG_FIELD_ID || 'REPLACE_WITH_FIELD_ID',
+              value: result.full_tag
+            }
+          ],
+          additional_tags: [result.full_tag?.replace(/::/g, '__')].filter(Boolean)
+        }
+      }
     });
   } catch (err) {
     console.error('/zendesk/webhook error:', err.message);
@@ -197,137 +198,82 @@ app.post('/zendesk/webhook', requireAuth, async (req, res) => {
   }
 });
 
-// ── POST /taxonomy/ai-edit ────────────────────────────────────────────────
+/**
+ * PUT /taxonomy
+ * Body: { tags: TagObject[] }
+ * Saves the updated taxonomy to GitHub and invalidates the in-memory cache.
+ * Requires GITHUB_TOKEN env var.
+ */
+app.put('/taxonomy', async (req, res) => {
+  try {
+    const { tags } = req.body;
+    if (!Array.isArray(tags)) return res.status(400).json({ error: 'tags must be an array' });
+    const result = await saveTaxonomyViaGithub(tags);
+    res.json(result);
+  } catch (err) {
+    console.error('PUT /taxonomy error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * POST /taxonomy/ai-edit
  * Body: { prompt: string }
- * Uses OpenAI to propose taxonomy changes based on a natural language prompt.
+ * Sends the current taxonomy + prompt to OpenAI and returns proposed changes.
+ * Does NOT save — the client must call PUT /taxonomy to persist.
  */
-app.post('/taxonomy/ai-edit', requireAuth, async (req, res) => {
+app.post('/taxonomy/ai-edit', async (req, res) => {
   try {
     const { prompt } = req.body;
-    if (!prompt || typeof prompt !== 'string') {
-      return res.status(400).json({ error: 'prompt (string) is required' });
-    }
+    if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-    const OpenAI = require('openai');
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'OPENAI_API_KEY not configured' });
+
     const currentTags = getTags();
-    const promptText  = taxonomyPromptText();
+    const tagList = taxonomyPromptText();
+    const model = process.env.OPENAI_MODEL || 'gpt-4.1-nano';
 
-    const systemMsg = `You are a taxonomy editor for Headout's customer support interaction tag system.
-The taxonomy uses a hierarchical L1::L2::L3 naming convention (l3 may be empty).
-Each tag has: full_tag, l1, l2, l3, intent, trip_stage, definition, minded_equivalent_tag, easy_tag_category.
-You must return JSON describing the changes to make and the complete updated tags array.
-Be conservative — only make changes that are clearly requested. Preserve all existing tags unless explicitly asked to remove them.`;
+    const systemMsg = `You are a taxonomy editor for Headout's Zendesk support tag system.
+The taxonomy uses an L1::L2::L3 hierarchy. Each tag has: full_tag, l1, l2, l3, intent, trip_stage, definition, easy_tag_category, minded_equivalent_tag.
+easy_tag_category is l1__l2__l3 (double underscores). trip_stage must be one of: Any, Pre-trip, During trip, Post-trip.
+Only make changes explicitly asked for. Return valid JSON.`;
 
-    const userMsg = `Current taxonomy (${currentTags.length} tags):\n${JSON.stringify(currentTags, null, 2)}\n\nUser request: ${prompt}`;
+    const userMsg = `Current taxonomy (${currentTags.length} tags):\n${tagList}\n\nRequested change: ${prompt}\n\nReturn JSON: { "explanation": "...", "changes": [{"action":"add"|"modify"|"remove","full_tag":"..."}], "updated_tags": [...full tag array after changes...] }`;
 
-    const completion = await client.chat.completions.create({
-      model: MODEL,
-      messages: [
-        { role: 'system', content: systemMsg },
-        { role: 'user',   content: userMsg },
-      ],
-      response_format: {
-        type: 'json_schema',
-        json_schema: {
-          name: 'taxonomy_edit',
-          strict: true,
-          schema: {
-            type: 'object',
-            properties: {
-              explanation: { type: 'string' },
-              changes: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    action:    { type: 'string', enum: ['add', 'remove', 'modify'] },
-                    full_tag:  { type: 'string' },
-                    tag:       { type: ['object', 'null'] },
-                    updates:   { type: ['object', 'null'] },
-                  },
-                  required: ['action', 'full_tag'],
-                  additionalProperties: false,
-                },
-              },
-              updated_tags: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    full_tag:              { type: 'string' },
-                    l1:                    { type: 'string' },
-                    l2:                    { type: 'string' },
-                    l3:                    { type: 'string' },
-                    intent:                { type: 'string' },
-                    trip_stage:            { type: 'string' },
-                    definition:            { type: 'string' },
-                    minded_equivalent_tag: { type: 'string' },
-                    easy_tag_category:     { type: 'string' },
-                  },
-                  required: ['full_tag', 'l1', 'l2', 'l3', 'intent', 'trip_stage', 'definition', 'minded_equivalent_tag', 'easy_tag_category'],
-                  additionalProperties: false,
-                },
-              },
-            },
-            required: ['explanation', 'changes', 'updated_tags'],
-            additionalProperties: false,
-          },
-        },
-      },
+    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        response_format: { type: 'json_object' },
+        messages: [{ role: 'system', content: systemMsg }, { role: 'user', content: userMsg }],
+      }),
     });
-
-    const usage   = completion.usage || {};
-    const result  = JSON.parse(completion.choices[0].message.content);
-
+    if (!openaiRes.ok) {
+      const err = await openaiRes.text();
+      throw new Error(`OpenAI error (${openaiRes.status}): ${err.slice(0, 300)}`);
+    }
+    const aiData = await openaiRes.json();
+    const parsed = JSON.parse(aiData.choices[0].message.content);
     res.json({
-      changes:       result.changes,
-      explanation:   result.explanation,
-      updated_tags:  result.updated_tags,
-      tokens_input:  usage.prompt_tokens || 0,
-      tokens_output: usage.completion_tokens || 0,
+      explanation:  parsed.explanation  || '',
+      changes:      parsed.changes      || [],
+      updated_tags: parsed.updated_tags || currentTags,
+      tokens_input:  aiData.usage?.prompt_tokens     || 0,
+      tokens_output: aiData.usage?.completion_tokens || 0,
     });
   } catch (err) {
-    console.error('/taxonomy/ai-edit error:', err.message);
+    console.error('POST /taxonomy/ai-edit error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
-
-// ── PUT /taxonomy ─────────────────────────────────────────────────────────
-
-/**
- * PUT /taxonomy
- * Body: { tags: Array<tag object> }
- * Saves the updated taxonomy to GitHub.
- */
-app.put('/taxonomy', requireAuth, async (req, res) => {
-  try {
-    const { tags } = req.body;
-    if (!Array.isArray(tags)) {
-      return res.status(400).json({ error: 'tags must be an array' });
-    }
-    const invalid = tags.findIndex(t => !t.full_tag || !t.l1 || !t.l2);
-    if (invalid !== -1) {
-      return res.status(400).json({ error: `Tag at index ${invalid} is missing full_tag, l1, or l2` });
-    }
-
-    const result = await saveTaxonomyViaGithub(tags);
-    res.json(result);
-  } catch (err) {
-    console.error('/taxonomy PUT error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ── GET /api/data ─────────────────────────────────────────────────────────
 
 /**
  * GET /api/data
- * Returns paginated Zendesk tickets that have been classified.
  * Query params: ?page=1&per_page=20
+ * Returns classified tickets from Zendesk (tickets with the interaction tag custom field set).
+ * Requires ZENDESK_SUBDOMAIN, ZENDESK_EMAIL, ZENDESK_TOKEN env vars.
  */
 app.get('/api/data', async (req, res) => {
   const subdomain = process.env.ZENDESK_SUBDOMAIN;
@@ -336,59 +282,41 @@ app.get('/api/data', async (req, res) => {
   const fieldId   = process.env.MINDED_TAG_FIELD_ID;
 
   if (!subdomain || !email || !token) {
-    return res.json({ ok: false, error: 'Zendesk not configured' });
+    return res.json({ ok: false, error: 'Zendesk credentials not configured' });
   }
 
-  const page     = parseInt(req.query.page     || '1', 10);
-  const per_page = parseInt(req.query.per_page || '20', 10);
-  const cred     = Buffer.from(`${email}/token:${token}`).toString('base64');
+  const page    = Math.max(1, parseInt(req.query.page  || '1',  10));
+  const perPage = Math.min(100, parseInt(req.query.per_page || '20', 10));
+  const cred    = Buffer.from(`${email}/token:${token}`).toString('base64');
+  const headers = { Authorization: `Basic ${cred}`, 'Content-Type': 'application/json' };
 
   try {
     const query = fieldId
-      ? `type:ticket+custom_field_${fieldId}:*`
-      : `type:ticket`;
+      ? `custom_field_${fieldId}:*`
+      : `tags:interaction_tag`;
+    const url = `https://${subdomain}.zendesk.com/api/v2/search.json?query=${encodeURIComponent(query)}&sort_by=created_at&sort_order=desc&page=${page}&per_page=${perPage}`;
+    const zdRes = await fetch(url, { headers });
+    if (!zdRes.ok) throw new Error(`Zendesk search failed: ${zdRes.status}`);
+    const zdData = await zdRes.json();
 
-    const url = `https://${subdomain}.zendesk.com/api/v2/search.json` +
-      `?query=${encodeURIComponent(query)}` +
-      `&sort_by=created_at&sort_order=desc` +
-      `&per_page=${per_page}&page=${page}`;
-
-    const zRes = await fetch(url, {
-      headers: { Authorization: `Basic ${cred}`, 'Content-Type': 'application/json' },
-    });
-
-    if (!zRes.ok) {
-      const msg = await zRes.text();
-      return res.status(502).json({ ok: false, error: `Zendesk error: ${msg.slice(0, 200)}` });
-    }
-
-    const data = await zRes.json();
-    const results = (data.results || []).map(ticket => {
-      let interaction_tag = null;
-      if (fieldId && ticket.custom_fields) {
-        const cf = ticket.custom_fields.find(f => String(f.id) === String(fieldId));
-        if (cf) interaction_tag = cf.value;
-      }
+    const results = (zdData.results || []).map(t => {
+      const tagField = fieldId
+        ? (t.custom_fields || []).find(f => String(f.id) === String(fieldId))
+        : null;
       return {
-        ticket_id:       ticket.id,
-        subject:         ticket.subject,
-        url:             `https://${subdomain}.zendesk.com/agent/tickets/${ticket.id}`,
-        interaction_tag,
-        created_at:      ticket.created_at,
-        status:          ticket.status,
+        ticket_id:       t.id,
+        subject:         t.subject,
+        status:          t.status,
+        created_at:      t.created_at,
+        interaction_tag: tagField?.value || null,
+        url:             `https://${subdomain}.zendesk.com/agent/tickets/${t.id}`,
       };
     });
 
-    res.json({
-      ok:       true,
-      total:    data.count || results.length,
-      page,
-      per_page,
-      results,
-    });
+    res.json({ ok: true, total: zdData.count || 0, page, per_page: perPage, results });
   } catch (err) {
-    console.error('/api/data error:', err.message);
-    res.status(500).json({ ok: false, error: err.message });
+    console.error('GET /api/data error:', err.message);
+    res.json({ ok: false, error: err.message });
   }
 });
 
@@ -411,47 +339,6 @@ async function fetchZendeskTranscript(ticketId) {
     .slice(0, 30)
     .map(c => `[${c.public ? 'PUBLIC' : 'INTERNAL'} | ${c.created_at} | author ${c.author_id}]\n${c.plain_body || c.body || ''}`)
     .join('\n\n---\n\n');
-}
-
-// ── Zendesk tag write-back ────────────────────────────────────────────────
-
-async function writeTagToZendesk(ticketId, fullTag) {
-  const subdomain  = process.env.ZENDESK_SUBDOMAIN;
-  const email      = process.env.ZENDESK_EMAIL;
-  const token      = process.env.ZENDESK_TOKEN;
-  const fieldId    = process.env.MINDED_TAG_FIELD_ID;
-  const cred       = Buffer.from(`${email}/token:${token}`).toString('base64');
-
-  if (!fieldId) {
-    return { ok: false, error: 'MINDED_TAG_FIELD_ID env var not set' };
-  }
-
-  const easyTag = fullTag.replace(/::/g, '__');
-  const body = {
-    ticket: {
-      custom_fields: [{ id: Number(fieldId), value: fullTag }],
-      additional_tags: [easyTag]
-    }
-  };
-
-  const res = await fetch(
-    `https://${subdomain}.zendesk.com/api/v2/tickets/${ticketId}.json`,
-    {
-      method: 'PUT',
-      headers: {
-        Authorization: `Basic ${cred}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    }
-  );
-
-  if (!res.ok) {
-    const text = await res.text();
-    return { ok: false, status: res.status, error: text.slice(0, 300) };
-  }
-
-  return { ok: true, ticket_id: ticketId, field_id: fieldId, value: fullTag };
 }
 
 // ── start ──────────────────────────────────────────────────────────────────
